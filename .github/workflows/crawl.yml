@@ -2,9 +2,8 @@ name: meme-radar crawler
 
 on:
   schedule:
-    # 매 2시간마다 실행 (UTC 기준 → KST +9)
     - cron: "0 */2 * * *"
-  workflow_dispatch:  # 수동 실행 버튼
+  workflow_dispatch:
 
 jobs:
   crawl:
@@ -18,8 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: "3.11.x"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -30,14 +28,3 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python main.py
-
-      - name: Run crawlers (on failure — retry once)
-        if: failure()
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-        run: |
-          echo "1차 실패 — 5분 후 재시도"
-          sleep 300
-          python main.py
