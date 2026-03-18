@@ -17,14 +17,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11.x"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       - name: Run crawlers
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:          ${{ secrets.SUPABASE_KEY }}
+          YOUTUBE_API_KEY:       ${{ secrets.YOUTUBE_API_KEY }}
+          REDDIT_CLIENT_ID:      ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET:  ${{ secrets.REDDIT_CLIENT_SECRET }}
+          NAVER_CLIENT_ID:       ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET:   ${{ secrets.NAVER_CLIENT_SECRET }}
         run: python main.py
