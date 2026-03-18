@@ -66,4 +66,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     all_targets = list(CRAWLERS.keys())
-    run_all([args.only] if args.only else all_targets)
+    run_all([args.only] if args.only else ["ruli", "ucduk", "naver", "yt"])
+
