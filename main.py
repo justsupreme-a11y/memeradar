@@ -19,11 +19,12 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 CRAWLERS = {
-    "reddit": ("Reddit",   "crawlers.reddit",  "run"),  # ← 이거 추가
-    "ruli":   ("루리웹",   "crawlers.ruliweb", "run"),
-    "ucduk":  ("웃긴대학", "crawlers.ucduk",   "run"),
-    "naver":  ("네이버",   "crawlers.naver",   "run"),
-    "yt":     ("YouTube",  "crawlers.youtube", "run"),
+    "reddit":    ("Reddit",            "crawlers.reddit",         "run"),
+    "yt":        ("YouTube 트렌딩",    "crawlers.youtube",        "run"),
+    "yt_meme":   ("YouTube 밈채널",    "crawlers.youtube_meme_ch","run"),
+    "x_trends":  ("X 트렌딩",          "crawlers.x_trends",       "run"),
+    "gtrends":   ("구글 트렌드",        "crawlers.google_trends",  "run"),
+    "naver":     ("네이버 DataLab",    "crawlers.naver_datalab",  "run"),
 }
 
 
