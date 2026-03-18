@@ -1,13 +1,13 @@
 """
-YouTube Shorts 크롤러
-- API: YouTube Data API v3 (무료 · 하루 10,000 유닛)
-- 대상: 밈 관련 한국어 + 글로벌 트렌딩 Shorts
-- 비용: 검색 1회 = 100유닛 → 하루 최대 100회 검색 가능
+YouTube 트렌딩 크롤러 v2
+- 키워드 검색 대신 트렌딩/급상승 영상 수집
+- 한국(KR) + 미국(US) 트렌딩 각각 수집
+- 카테고리: 엔터테인먼트(23), 코미디(34) 위주
+- API 비용: videChart 1회 = 1유닛 (매우 저렴)
 """
 
 import os
 import logging
-from datetime import datetime, timedelta, timezone
 from googleapiclient.discovery import build
 from utils.db import save_meme
 
@@ -16,137 +16,135 @@ log = logging.getLogger(__name__)
 
 YT_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
-# 검색 키워드 세트 — 국내 + 해외 구분
-QUERIES = [
-    # 국내
-    {"q": "밈 #shorts",          "platform": "domestic", "lang": "ko"},
-    {"q": "유머짤 #shorts",       "platform": "domestic", "lang": "ko"},
-    {"q": "개드립 #shorts",       "platform": "domestic", "lang": "ko"},
-    # 해외
-    {"q": "meme compilation #shorts", "platform": "global", "lang": "en"},
-    {"q": "funny meme #shorts",       "platform": "global", "lang": "en"},
-    {"q": "trending meme 2024",       "platform": "global", "lang": "en"},
+# 트렌딩 수집 설정
+REGIONS = [
+    {"code": "KR", "platform": "domestic", "label": "한국"},
+    {"code": "US", "platform": "global",   "label": "미국"},
 ]
 
-MAX_RESULTS_PER_QUERY = 10  # 유닛 절약: 10개씩 (100유닛/회)
+# 수집할 카테고리 ID (없으면 전체)
+# 1=영화, 2=자동차, 10=음악, 15=동물, 17=스포츠,
+# 23=엔터테인먼트, 24=뉴스, 28=과학기술, 34=코미디
+CATEGORY_IDS = ["23", "34"]  # 엔터테인먼트 + 코미디
+
+MAX_RESULTS = 50  # 지역당 최대 50개
 
 
-def build_service():
-    return build("youtube", "v3", developerKey=YT_API_KEY)
-
-
-def search_shorts(service, query: str, lang: str, max_results: int = 10) -> list[dict]:
-    """Shorts 검색 — 최근 48시간 이내 영상만"""
-    published_after = (
-        datetime.now(timezone.utc) - timedelta(hours=48)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
-
+def fetch_trending(service, region_code: str, category_id: str = "") -> list[dict]:
+    """특정 지역 + 카테고리의 트렌딩 영상 수집"""
     try:
-        resp = service.search().list(
-            part="snippet",
-            q=query,
-            type="video",
-            videoDuration="short",       # 60초 이하 = Shorts
-            publishedAfter=published_after,
-            relevanceLanguage=lang,
-            maxResults=max_results,
-            order="viewCount",
-        ).execute()
+        params = {
+            "part": "snippet,statistics,contentDetails",
+            "chart": "mostPopular",
+            "regionCode": region_code,
+            "maxResults": MAX_RESULTS,
+            "hl": "ko" if region_code == "KR" else "en",
+        }
+        if category_id:
+            params["videoCategoryId"] = category_id
+
+        resp = service.videos().list(**params).execute()
+        return resp.get("items", [])
     except Exception as e:
-        log.warning(f"검색 실패 '{query}': {e}")
+        log.warning(f"트렌딩 수집 실패 {region_code} cat={category_id}: {e}")
         return []
 
-    results = []
-    for item in resp.get("items", []):
-        snippet = item["snippet"]
-        video_id = item["id"]["videoId"]
-        results.append({
-            "video_id":    video_id,
-            "title":       snippet["title"],
-            "url":         f"https://www.youtube.com/shorts/{video_id}",
-            "thumbnail":   snippet["thumbnails"].get("high", {}).get("url", ""),
-            "channel":     snippet["channelTitle"],
-            "published_at": snippet["publishedAt"],
-        })
 
-    return results
-
-
-def fetch_video_stats(service, video_ids: list[str]) -> dict[str, dict]:
-    """영상 통계(조회수, 좋아요) 배치 조회 — 1회 API 호출로 최대 50개"""
-    if not video_ids:
-        return {}
-    try:
-        resp = service.videos().list(
-            part="statistics",
-            id=",".join(video_ids),
-        ).execute()
-    except Exception as e:
-        log.warning(f"통계 조회 실패: {e}")
-        return {}
-
-    stats = {}
-    for item in resp.get("items", []):
-        s = item.get("statistics", {})
-        stats[item["id"]] = {
-            "view_count":    int(s.get("viewCount", 0)),
-            "like_count":    int(s.get("likeCount", 0)),
-            "comment_count": int(s.get("commentCount", 0)),
-        }
-    return stats
+def is_short(item: dict) -> bool:
+    """Shorts 여부 판별 (60초 이하)"""
+    duration = item.get("contentDetails", {}).get("duration", "")
+    # PT1M = 1분, PT30S = 30초 등
+    if "H" in duration:
+        return False
+    if "M" in duration:
+        try:
+            minutes = int(duration.split("PT")[1].split("M")[0])
+            return minutes <= 1
+        except Exception:
+            return False
+    return True  # 분 단위 없으면 60초 이하
 
 
 def run():
     if not YT_API_KEY:
-        log.error("YOUTUBE_API_KEY 환경변수가 없습니다.")
+        log.error("YOUTUBE_API_KEY 없음")
         return 0
 
-    service = build_service()
+    service = build("youtube", "v3", developerKey=YT_API_KEY)
     total_new = 0
 
-    for query_cfg in QUERIES:
-        q        = query_cfg["q"]
-        platform = query_cfg["platform"]
-        lang     = query_cfg["lang"]
+    for region in REGIONS:
+        code     = region["code"]
+        platform = region["platform"]
+        label    = region["label"]
 
-        log.info(f"검색: '{q}' ({platform})")
-        videos = search_shorts(service, q, lang, MAX_RESULTS_PER_QUERY)
-        log.info(f"  → {len(videos)}건 발견")
+        # 카테고리별 수집 + 전체 트렌딩도 수집
+        targets = CATEGORY_IDS + [""]  # 빈 문자열 = 전체 카테고리
 
-        if not videos:
-            continue
+        seen_ids = set()  # 중복 방지
 
-        # 통계 배치 조회 (유닛 절약)
-        ids = [v["video_id"] for v in videos]
-        stats_map = fetch_video_stats(service, ids)
+        for cat_id in targets:
+            cat_label = {
+                "23": "엔터테인먼트",
+                "34": "코미디",
+                "":   "전체 트렌딩",
+            }.get(cat_id, cat_id)
 
-        for v in videos:
-            s = stats_map.get(v["video_id"], {})
+            log.info(f"수집: {label} / {cat_label}")
+            items = fetch_trending(service, code, cat_id)
+            log.info(f"  → {len(items)}건")
 
-            # 조회수 낮은 건 스킵
-            if s.get("view_count", 0) < 1000:
-                continue
+            for item in items:
+                video_id = item["id"]
+                if video_id in seen_ids:
+                    continue
+                seen_ids.add(video_id)
 
-            saved = save_meme(
-                title=v["title"],
-                url=v["url"],
-                source="youtube",
-                platform=platform,
-                image_url=v["thumbnail"],
-                view_count=s.get("view_count", 0),
-                like_count=s.get("like_count", 0),
-                comment_count=s.get("comment_count", 0),
-                extra={
-                    "video_id":    v["video_id"],
-                    "channel":     v["channel"],
-                    "published_at": v["published_at"],
-                    "query":       q,
-                },
-            )
-            if saved:
-                total_new += 1
+                snippet    = item.get("snippet", {})
+                statistics = item.get("statistics", {})
 
-    log.info(f"YouTube Shorts 완료 — 신규 {total_new}건 저장")
+                title      = snippet.get("title", "")
+                channel    = snippet.get("channelTitle", "")
+                thumbnail  = snippet.get("thumbnails", {}).get("high", {}).get("url", "")
+                published  = snippet.get("publishedAt", "")
+                view_count = int(statistics.get("viewCount", 0))
+                like_count = int(statistics.get("likeCount", 0))
+                comment_count = int(statistics.get("commentCount", 0))
+
+                # 조회수 너무 낮으면 스킵
+                if view_count < 10000:
+                    continue
+
+                # Shorts vs 일반 영상 구분
+                video_type = "shorts" if is_short(item) else "video"
+                url = (
+                    f"https://www.youtube.com/shorts/{video_id}"
+                    if video_type == "shorts"
+                    else f"https://www.youtube.com/watch?v={video_id}"
+                )
+
+                saved = save_meme(
+                    title=title,
+                    url=url,
+                    source="youtube",
+                    platform=platform,
+                    image_url=thumbnail,
+                    view_count=view_count,
+                    like_count=like_count,
+                    comment_count=comment_count,
+                    extra={
+                        "video_id":    video_id,
+                        "channel":     channel,
+                        "published_at": published,
+                        "region":      code,
+                        "category_id": cat_id,
+                        "video_type":  video_type,
+                    },
+                )
+                if saved:
+                    total_new += 1
+
+    log.info(f"YouTube 트렌딩 완료 — 신규 {total_new}건")
     return total_new
 
 
