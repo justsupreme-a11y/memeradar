@@ -30,28 +30,62 @@ LIFECYCLE_RULES = [
 # ── 흐름 분류 로직 ─────────────────────────────────────
 
 def classify_flow(meme: dict, all_memes_index: dict) -> str:
-    """
-    같은 content_hash 계열 밈들의 플랫폼 + 최초 등장 시각을 비교해서
-    흐름 방향을 판정한다.
-
-    판정 규칙:
-    - 해외 소스(reddit/youtube)에서 먼저 등장 → inflow
-    - 국내 소스에서만 등장, 해외 동일 밈 없음 → independent
-    - 국내 소스가 해외보다 48시간 이상 앞섬 → export
-    """
-    source   = meme["source"]
-    platform = meme["platform"]
-
-    # 제목 키워드로 유사 밈 묶기 (간단 버전: 첫 3단어 매칭)
-    title_key = _title_key(meme["title"])
-    related   = all_memes_index.get(title_key, [])
-
-    if not related or len(related) == 1:
-        # 관련 밈이 없으면 플랫폼으로만 판정
-        if source in GLOBAL_SOURCES:
+    source = meme["source"]
+    
+    # 소스 기반 1차 판정 (가장 확실한 기준)
+    if source in {"reddit"}:
+        return "inflow"  # Reddit은 무조건 해외→국내 유입
+    
+    if source in {"youtube", "youtube_meme_ch"}:
+        platform = meme.get("platform", "")
+        if platform == "global":
             return "inflow"
         return "independent"
-
+    
+    if source in {"x_trends"}:
+        platform = meme.get("platform", "")
+        if platform == "global":
+            return "inflow"
+        return "independent"
+    
+    if source in {"naver", "naver_realtime", "naver_datalab", "google_trends"}:
+        return "independent"  # 국내 검색 트렌드는 독립 생성
+    
+    if source in {"ruliweb", "ucduk", "dcinside", "fmkorea"}:
+        return "independent"  # 국내 커뮤니티는 독립 생성
+    
+    # 나머지는 기존 타임스탬프 비교 로직
+    title_key = _title_key(meme["title"])
+    related   = all_memes_index.get(title_key, [])
+    
+    if not related or len(related) == 1:
+        return "independent"
+    
+    global_times   = []
+    domestic_times = []
+    
+    for m in related:
+        t = _parse_time(m["collected_at"])
+        if m["source"] in GLOBAL_SOURCES:
+            global_times.append(t)
+        else:
+            domestic_times.append(t)
+    
+    if not global_times:
+        return "independent"
+    if not domestic_times:
+        return "inflow"
+    
+    earliest_global   = min(global_times)
+    earliest_domestic = min(domestic_times)
+    diff_hours = (earliest_domestic - earliest_global).total_seconds() / 3600
+    
+    if diff_hours > 48:
+        return "export"
+    elif diff_hours < -6:
+        return "inflow"
+    else:
+        return "independent"
     # 관련 밈들의 최초 등장 시각 분리
     global_times   = []
     domestic_times = []
