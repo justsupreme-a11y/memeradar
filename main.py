@@ -1,17 +1,14 @@
 """
-밈레이더 크롤러 메인 실행기
-GitHub Actions에서 호출하거나 로컬에서 직접 실행 가능.
-
-사용법:
-  python main.py                  # 전체 실행
-  python main.py --only dci       # 디시만
-  python main.py --only fmk       # 에펨만
-  python main.py --only yt        # 유튜브만
+밈레이더 v2 — 통합 실행기
+크롤러: Reddit / 루리웹 / 웃긴대학 / 네이버 / YouTube
 """
 
 import sys
+import os
 import logging
 import argparse
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,35 +17,41 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+CRAWLERS = {
+    "reddit":  ("Reddit",     "crawlers.reddit",  "run"),
+    "ruli":    ("루리웹",      "crawlers.ruliweb", "run"),
+    "ucduk":   ("웃긴대학",    "crawlers.ucduk",   "run"),
+    "naver":   ("네이버",      "crawlers.naver",   "run"),
+    "yt":      ("YouTube",    "crawlers.youtube", "run"),
+}
+
 
 def run_all(targets: list[str]):
     results = {}
 
-    if "dci" in targets:
-        log.info("=" * 40)
-        log.info("디시인사이드 크롤러 시작")
-        log.info("=" * 40)
-        from crawlers.dcinside import run as run_dci
-        results["dcinside"] = run_dci(pages=3)
+    for key in targets:
+        if key not in CRAWLERS:
+            log.warning(f"알 수 없는 크롤러: {key}")
+            continue
 
-    if "fmk" in targets:
+        name, module_path, func_name = CRAWLERS[key]
         log.info("=" * 40)
-        log.info("에펨코리아 크롤러 시작")
+        log.info(f"{name} 크롤러 시작")
         log.info("=" * 40)
-        from crawlers.fmkorea import run as run_fmk
-        results["fmkorea"] = run_fmk(pages=3)
 
-    if "yt" in targets:
-        log.info("=" * 40)
-        log.info("YouTube Shorts 크롤러 시작")
-        log.info("=" * 40)
-        from crawlers.youtube import run as run_yt
-        results["youtube"] = run_yt()
+        try:
+            import importlib
+            module = importlib.import_module(module_path)
+            func   = getattr(module, func_name)
+            results[name] = func()
+        except Exception as e:
+            log.error(f"{name} 크롤러 오류: {e}")
+            results[name] = 0
 
     log.info("=" * 40)
     log.info("전체 완료 요약")
-    for source, count in results.items():
-        log.info(f"  {source}: 신규 {count}건")
+    for name, count in results.items():
+        log.info(f"  {name}: 신규 {count}건")
     log.info(f"  합계: {sum(results.values())}건")
     log.info("=" * 40)
 
@@ -57,12 +60,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--only",
-        choices=["dci", "fmk", "yt"],
+        choices=list(CRAWLERS.keys()),
         help="특정 크롤러만 실행",
     )
     args = parser.parse_args()
 
-    if args.only:
-        run_all([args.only])
-    else:
-        run_all(["dci", "fmk", "yt"])
+    all_targets = list(CRAWLERS.keys())
+    run_all([args.only] if args.only else all_targets)
