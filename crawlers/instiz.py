@@ -1,6 +1,6 @@
 """
-인스티즈 크롤러
-- 대상: 인기 게시판 (아이돌/셀럽 밈 원산지)
+인스티즈 크롤러 v2
+- 실제 URL: instiz.net/hot.htm (HOT 인기글)
 - 방식: requests + BeautifulSoup
 """
 
@@ -16,7 +16,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [instiz] %(message)s
 log = logging.getLogger(__name__)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "ko-KR,ko;q=0.9",
     "Referer": "https://www.instiz.net/",
 }
@@ -24,75 +25,83 @@ HEADERS = {
 BASE_URL = "https://www.instiz.net"
 
 BOARDS = [
-    {"path": "/pt",   "name": "인기 게시판"},
-    {"path": "/name", "name": "연예인 이슈"},
+    {"url": f"{BASE_URL}/hot.htm",         "name": "HOT 인기글"},
+    {"url": f"{BASE_URL}/hot.htm?type=2",  "name": "연예 인기글"},
+    {"url": f"{BASE_URL}/hot.htm?type=1",  "name": "이슈 인기글"},
 ]
 
 
-def fetch_board(path: str) -> list[dict]:
-    url = BASE_URL + path
+def fetch_board(url: str, name: str) -> list[dict]:
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
         posts = []
-        for row in soup.select(".listbody tr, .list_wrap li, li.media_end_list_item"):
-            title_el = row.select_one("a.listsubject, .list_title a, a.subject")
+        seen = set()
+
+        # 인스티즈 HOT 페이지 실제 셀렉터
+        for item in soup.select(".hotissue_wrap li, .hot_list li, li.item"):
+            title_el = item.select_one("a")
             if not title_el:
                 continue
 
             title = title_el.text.strip()
             href  = title_el.get("href", "")
-            if not title or not href:
+
+            if not title or not href or href in seen:
+                continue
+            if len(title) < 3:
                 continue
 
-            if href.startswith("/"):
+            seen.add(href)
+            if not href.startswith("http"):
                 href = BASE_URL + href
 
-            # 조회수/댓글 파싱
-            view_el    = row.select_one(".listview, .view_count")
-            comment_el = row.select_one(".listcomment, .comment_count")
-
-            view_count    = _parse_num(view_el)
-            comment_count = _parse_num(comment_el)
+            # 조회수 파싱
+            view_el    = item.select_one(".count, .views, .view")
+            view_count = 0
+            if view_el:
+                try:
+                    view_count = int(view_el.text.strip().replace(",", ""))
+                except Exception:
+                    pass
 
             posts.append({
-                "title":         title,
-                "url":           href,
-                "view_count":    view_count,
-                "comment_count": comment_count,
+                "title":      title,
+                "url":        href,
+                "view_count": view_count,
             })
 
+        # 셀렉터가 안 맞으면 모든 a 태그에서 추출
+        if not posts:
+            for a in soup.select("a[href*='/pt/']"):
+                title = a.text.strip()
+                href  = a.get("href", "")
+                if not title or not href or href in seen or len(title) < 3:
+                    continue
+                seen.add(href)
+                if not href.startswith("http"):
+                    href = BASE_URL + href
+                posts.append({"title": title, "url": href, "view_count": 0})
+
         return posts
+
     except Exception as e:
-        log.warning(f"인스티즈 {path} 실패: {e}")
+        log.warning(f"인스티즈 {name} 실패: {e}")
         return []
-
-
-def _parse_num(el) -> int:
-    if not el:
-        return 0
-    try:
-        return int(el.text.strip().replace(",", ""))
-    except Exception:
-        return 0
 
 
 def run():
     total_new = 0
 
     for board in BOARDS:
-        log.info(f"수집: 인스티즈 {board['name']}")
-        posts = fetch_board(board["path"])
+        log.info(f"수집: {board['name']}")
+        posts = fetch_board(board["url"], board["name"])
         log.info(f"  → {len(posts)}건")
 
         for post in posts:
-            if post["view_count"] < 100:
-                continue
-
             category = classify_category(post["title"])
-            # 인스티즈는 셀럽 관련이 많으므로 기본값 celeb
             if category == "general":
                 category = "celeb"
 
@@ -102,14 +111,13 @@ def run():
                 source="instiz",
                 platform="domestic",
                 view_count=post["view_count"],
-                comment_count=post["comment_count"],
                 category=category,
                 extra={"board": board["name"]},
             )
             if saved:
                 total_new += 1
 
-        time.sleep(random.uniform(1.5, 3.0))
+        time.sleep(random.uniform(2.0, 4.0))
 
     log.info(f"인스티즈 완료 — 신규 {total_new}건")
     return total_new
