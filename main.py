@@ -1,6 +1,6 @@
 """
 밈레이더 v3 — 통합 실행기
-크롤러: 나무위키 / 인스티즈 / 대학내일 / KYM / YouTube 밈채널 / 구글 트렌드
+크롤러: 나무위키 / 인스티즈 / 대학내일 / 고구마팜 / KYM / Memedroid / Wikipedia / YouTube / 구글 트렌드
 """
 
 import sys
@@ -19,12 +19,15 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 CRAWLERS = {
-    "namuwiki":  ("나무위키",    "crawlers.namuwiki",        "run"),
-    "instiz":    ("인스티즈",    "crawlers.instiz",           "run"),
-    "univ":      ("대학내일",    "crawlers.univ_tomorrow",    "run"),
-    "kym":       ("KYM",        "crawlers.kym",              "run"),
-    "yt":        ("YouTube",    "crawlers.youtube_meme_ch",  "run"),
-    "gtrends":   ("구글 트렌드", "crawlers.google_trends",    "run"),
+    "namuwiki":   ("나무위키",    "crawlers.namuwiki",        "run"),
+    "instiz":     ("인스티즈",    "crawlers.instiz",           "run"),
+    "univ":       ("대학내일",    "crawlers.univ_tomorrow",    "run"),
+    "goguma":     ("고구마팜",    "crawlers.gogumafarm",       "run"),
+    "kym":        ("KYM",        "crawlers.kym",              "run"),
+    "memedroid":  ("Memedroid",  "crawlers.memedroid",        "run"),
+    "wikipedia":  ("Wikipedia",  "crawlers.wikipedia",        "run"),
+    "yt":         ("YouTube",    "crawlers.youtube_meme_ch",  "run"),
+    "gtrends":    ("구글 트렌드", "crawlers.google_trends",    "run"),
 }
 
 
@@ -45,7 +48,12 @@ def run_crawlers(targets: list[str]):
             results[name] = 0
 
     total = sum(results.values())
-    log.info(f"크롤링 합계: {total}건 신규 저장")
+    log.info("=" * 40)
+    log.info("전체 완료 요약")
+    for name, count in results.items():
+        log.info(f"  {name}: {count}건")
+    log.info(f"  합계: {total}건")
+    log.info("=" * 40)
     return results
 
 
