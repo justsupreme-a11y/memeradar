@@ -1,6 +1,6 @@
 """
-대학내일 크롤러
-- 대상: 트렌드/문화 기사 (MZ세대 트렌드 전문 미디어)
+대학내일 크롤러 v2
+- 실제 URL: univ20.com (매거진 사이트)
 - 방식: requests + BeautifulSoup
 """
 
@@ -12,21 +12,22 @@ from bs4 import BeautifulSoup
 from utils.db import save_meme
 from utils.category import classify_category
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [univ_tomorrow] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [univ20] %(message)s")
 log = logging.getLogger(__name__)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept-Language": "ko-KR,ko;q=0.9",
-    "Referer": "https://www.univtomorrow.co.kr/",
+    "Referer": "https://www.univ20.com/",
 }
 
-BASE_URL = "https://www.univtomorrow.co.kr"
+BASE_URL = "https://www.univ20.com"
 
 SECTIONS = [
-    {"url": f"{BASE_URL}/news/articleList.html?sc_section_code=S1N1", "name": "트렌드"},
-    {"url": f"{BASE_URL}/news/articleList.html?sc_section_code=S1N4", "name": "문화"},
-    {"url": f"{BASE_URL}/news/articleList.html?sc_section_code=S1N2", "name": "라이프"},
+    {"url": f"{BASE_URL}/category/trend", "name": "트렌드"},
+    {"url": f"{BASE_URL}/category/culture", "name": "문화"},
+    {"url": f"{BASE_URL}/category/life", "name": "라이프"},
+    {"url": BASE_URL, "name": "메인"},
 ]
 
 
@@ -37,33 +38,35 @@ def fetch_section(url: str, name: str) -> list[dict]:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         articles = []
-        for item in soup.select("li.item, .article-list li, .news-list li"):
-            title_el = item.select_one("a.titles, .item-title a, h4 a, h3 a")
-            img_el   = item.select_one("img")
+        # 다양한 셀렉터 시도
+        selectors = [
+            "article a", ".post-title a", "h2 a", "h3 a",
+            ".entry-title a", ".article-title a", ".item-title a",
+        ]
 
-            if not title_el:
-                continue
+        seen = set()
+        for sel in selectors:
+            for el in soup.select(sel):
+                title = el.text.strip()
+                href  = el.get("href", "")
+                if not title or not href or href in seen:
+                    continue
+                if len(title) < 5:
+                    continue
+                seen.add(href)
 
-            title = title_el.text.strip()
-            href  = title_el.get("href", "")
-            if not title or not href:
-                continue
+                img_el    = el.find_next("img")
+                image_url = ""
+                if img_el:
+                    image_url = img_el.get("src") or img_el.get("data-src") or ""
 
-            if href.startswith("/"):
-                href = BASE_URL + href
+                articles.append({
+                    "title":     title,
+                    "url":       href if href.startswith("http") else BASE_URL + href,
+                    "image_url": image_url,
+                })
 
-            image_url = ""
-            if img_el:
-                image_url = img_el.get("src") or img_el.get("data-src") or ""
-
-            articles.append({
-                "title":     title,
-                "url":       href,
-                "image_url": image_url,
-                "section":   name,
-            })
-
-        return articles
+        return articles[:20]
     except Exception as e:
         log.warning(f"대학내일 {name} 실패: {e}")
         return []
@@ -79,7 +82,6 @@ def run():
 
         for article in articles:
             category = classify_category(article["title"])
-
             saved = save_meme(
                 title=article["title"],
                 url=article["url"],
@@ -87,7 +89,7 @@ def run():
                 platform="domestic",
                 image_url=article["image_url"],
                 category=category,
-                extra={"section": article["section"]},
+                extra={"section": section["name"]},
             )
             if saved:
                 total_new += 1
