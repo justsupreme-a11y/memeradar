@@ -1,7 +1,7 @@
 """
-Know Your Meme 크롤러 v2
-- URL 수정: /newsfeed/trending 으로 변경
-- Confirmed 밈만 수집
+Know Your Meme 크롤러 v3
+- 트렌딩 URL: knowyourmeme.com/newsfeed/trending (확인됨)
+- 방식: requests + BeautifulSoup
 """
 
 import time
@@ -17,61 +17,69 @@ log = logging.getLogger(__name__)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://knowyourmeme.com/",
 }
 
 BASE_URL = "https://knowyourmeme.com"
 
 PAGES = [
     {"url": f"{BASE_URL}/newsfeed/trending", "label": "트렌딩"},
-    {"url": f"{BASE_URL}/memes",             "label": "최신"},
-    {"url": f"{BASE_URL}/memes?sort=latest-additions", "label": "신규"},
+    {"url": f"{BASE_URL}/memes/trending",    "label": "밈 트렌딩"},
+    {"url": f"{BASE_URL}/memes",             "label": "최신 밈"},
 ]
 
 
-def fetch_page(url: str) -> list[dict]:
+def fetch_page(url: str, label: str) -> list[dict]:
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-        memes = []
 
-        # 뉴스피드 트렌딩 파싱
-        for item in soup.select("article, .entry, .meme-entry, h2 a, .newsfeed-entry"):
-            title_el  = item.select_one("h2 a, h3 a, .entry-title a, a.title")
-            img_el    = item.select_one("img")
+        items = []
+        seen  = set()
 
-            if not title_el:
-                continue
+        # 다양한 셀렉터 시도
+        selectors = [
+            "h2 a[href*='/memes/']",
+            "h1 a[href*='/memes/']",
+            "a.entry-title[href*='/memes/']",
+            ".entry h2 a",
+            ".newsfeed h2 a",
+            "article h2 a",
+            "article h3 a",
+            ".infinite-scroll-component a[href*='/memes/']",
+        ]
 
-            title = title_el.text.strip()
-            href  = title_el.get("href", "")
-            if not title or not href:
-                continue
-            if not href.startswith("http"):
-                href = BASE_URL + href
+        for sel in selectors:
+            for el in soup.select(sel):
+                title = el.text.strip()
+                href  = el.get("href", "")
+                if not title or not href or href in seen:
+                    continue
+                if len(title) < 2:
+                    continue
+                seen.add(href)
 
-            image_url = ""
-            if img_el:
-                image_url = img_el.get("src") or img_el.get("data-src") or ""
-                if image_url.startswith("//"):
-                    image_url = "https:" + image_url
+                if not href.startswith("http"):
+                    href = BASE_URL + href
 
-            memes.append({
-                "title":     title,
-                "url":       href,
-                "image_url": image_url,
-            })
+                img_el = el.find_previous("img") or el.find_next("img")
+                image_url = ""
+                if img_el:
+                    image_url = img_el.get("src") or img_el.get("data-src") or ""
+                    if image_url.startswith("//"):
+                        image_url = "https:" + image_url
 
-        # 중복 제거
-        seen = set()
-        unique = []
-        for m in memes:
-            if m["url"] not in seen:
-                seen.add(m["url"])
-                unique.append(m)
+                items.append({
+                    "title":     title,
+                    "url":       href,
+                    "image_url": image_url,
+                })
 
-        return unique
+        return items
+
     except Exception as e:
         log.warning(f"KYM {url} 실패: {e}")
         return []
@@ -80,26 +88,21 @@ def fetch_page(url: str) -> list[dict]:
 def run():
     total_new = 0
 
-    for page_cfg in PAGES:
-        log.info(f"수집: KYM {page_cfg['label']}")
-        memes = fetch_page(page_cfg["url"])
-        log.info(f"  → {len(memes)}건")
+    for page in PAGES:
+        log.info(f"수집: KYM {page['label']}")
+        items = fetch_page(page["url"], page["label"])
+        log.info(f"  → {len(items)}건")
 
-        for meme in memes:
-            # /memes/ 경로만 저장 (뉴스/포럼 제외)
-            if "/memes/" not in meme["url"] and "/newsfeed/" not in meme["url"]:
-                continue
-
-            category = classify_category(meme["title"])
-
+        for item in items:
+            category = classify_category(item["title"])
             saved = save_meme(
-                title=meme["title"],
-                url=meme["url"],
+                title=item["title"],
+                url=item["url"],
                 source="kym",
                 platform="global",
-                image_url=meme["image_url"],
+                image_url=item["image_url"],
                 category=category,
-                extra={"page": page_cfg["label"]},
+                extra={"page": page["label"]},
             )
             if saved:
                 total_new += 1
