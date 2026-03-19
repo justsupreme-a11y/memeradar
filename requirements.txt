@@ -4,4 +4,4 @@ lxml==5.1.0
 supabase==1.2.0
 google-api-python-client==2.118.0
 httpx==0.24.1
-pytrends==4.9.2
+trendspy==0.1.4

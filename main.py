@@ -1,6 +1,6 @@
 """
-밈레이더 v2 — 통합 실행기
-순서: 크롤러 실행 → 분류기 실행
+밈레이더 v3 — 통합 실행기
+크롤러: 나무위키 / 인스티즈 / 대학내일 / KYM / YouTube 밈채널 / 구글 트렌드
 """
 
 import sys
@@ -19,12 +19,12 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 CRAWLERS = {
-    "kym":      ("Know Your Meme",  "crawlers.knowyourmeme",   "run"),
-    "reddit":   ("Reddit",          "crawlers.reddit",          "run"),
-    "yt_meme":  ("YouTube 밈채널",  "crawlers.youtube_meme_ch", "run"),
-    "x_trends": ("X 트렌딩",        "crawlers.x_trends",        "run"),
-    "gtrends":  ("구글 트렌드",      "crawlers.google_trends",   "run"),
-    "naver":    ("네이버 DataLab",  "crawlers.naver_datalab",   "run"),
+    "namuwiki":  ("나무위키",    "crawlers.namuwiki",        "run"),
+    "instiz":    ("인스티즈",    "crawlers.instiz",           "run"),
+    "univ":      ("대학내일",    "crawlers.univ_tomorrow",    "run"),
+    "kym":       ("KYM",        "crawlers.kym",              "run"),
+    "yt":        ("YouTube",    "crawlers.youtube_meme_ch",  "run"),
+    "gtrends":   ("구글 트렌드", "crawlers.google_trends",    "run"),
 }
 
 
@@ -44,7 +44,8 @@ def run_crawlers(targets: list[str]):
             log.error(f"{name} 오류: {e}")
             results[name] = 0
 
-    log.info(f"크롤링 합계: {sum(results.values())}건 신규 저장")
+    total = sum(results.values())
+    log.info(f"크롤링 합계: {total}건 신규 저장")
     return results
 
 

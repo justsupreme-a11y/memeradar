@@ -1,110 +1,110 @@
 """
-구글 트렌드 크롤러
-- 라이브러리: pytrends (비공식 · 무료)
-- 대상: 한국 실시간 급상승 검색어 + 트렌드 점수
-- API 키 불필요
+구글 트렌드 크롤러 v2
+- pytrends → trendspyg 교체 (2025년 현재 작동)
+- 한국 실시간 급상승 + 일간 트렌드
 """
 
 import time
 import logging
-from pytrends.request import TrendReq
 from utils.db import save_meme
+from utils.category import classify_category
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [gtrends] %(message)s")
 log = logging.getLogger(__name__)
 
 
-def run():
+def fetch_realtime_trends() -> list[str]:
+    """한국 실시간 급상승 검색어"""
     try:
-        pytrends = TrendReq(hl="ko", tz=540)  # KST
+        from trendspy import Trends
+        tr = Trends()
+        results = tr.trending_now(geo="KR")
+        keywords = []
+        for item in results:
+            if hasattr(item, 'keyword'):
+                keywords.append(item.keyword)
+            elif isinstance(item, str):
+                keywords.append(item)
+        return keywords[:20]
     except Exception as e:
-        log.error(f"pytrends 초기화 실패: {e}")
-        return 0
+        log.warning(f"trendspy 실시간 트렌드 실패: {e}")
+        return []
 
+
+def fetch_daily_trends() -> list[dict]:
+    """일간 급상승 검색어 (상세 정보 포함)"""
+    try:
+        from trendspy import Trends
+        tr = Trends()
+        results = tr.trending_now_by_rss(geo="KR")
+        items = []
+        for item in results[:20]:
+            kw = getattr(item, 'keyword', str(item))
+            articles = []
+            if hasattr(item, 'news_articles'):
+                for art in (item.news_articles or [])[:3]:
+                    articles.append({
+                        "title": getattr(art, 'title', ''),
+                        "url":   getattr(art, 'url', ''),
+                        "source": "google_news",
+                    })
+            items.append({
+                "keyword":  kw,
+                "articles": articles,
+            })
+        return items
+    except Exception as e:
+        log.warning(f"trendspy 일간 트렌드 실패: {e}")
+        return []
+
+
+def run():
     total_new = 0
 
-    # 1. 실시간 급상승 검색어 (한국)
-    log.info("실시간 급상승 검색어 수집 중...")
-    try:
-        trending = pytrends.trending_searches(pn="south_korea")
-        keywords = trending[0].tolist()
-        log.info(f"  → {len(keywords)}개 키워드")
+    # 1. 실시간 급상승
+    log.info("구글 실시간 급상승 수집 중...")
+    realtime = fetch_realtime_trends()
+    log.info(f"  → {len(realtime)}건")
 
-        for kw in keywords:
-            saved = save_meme(
-                title=kw,
-                url=f"https://trends.google.com/trends/explore?q={kw}&geo=KR",
-                source="google_trends",
-                platform="domestic",
-                extra={"type": "realtime", "keyword": kw},
-            )
-            if saved:
-                total_new += 1
+    for i, kw in enumerate(realtime):
+        category = classify_category(kw)
+        saved = save_meme(
+            title=kw,
+            url=f"https://trends.google.com/trends/explore?q={kw}&geo=KR",
+            source="google_trends",
+            platform="domestic",
+            view_count=len(realtime) - i,  # 순위 역산
+            category=category,
+            extra={"type": "realtime", "rank": i + 1},
+        )
+        if saved:
+            total_new += 1
 
-        time.sleep(2)
-    except Exception as e:
-        log.warning(f"실시간 트렌드 실패: {e}")
+    time.sleep(3)
 
-    # 2. 일간 급상승 검색어 (한국) - 더 자세한 정보 포함
-    log.info("일간 급상승 검색어 수집 중...")
-    try:
-        daily = pytrends.today_searches(pn="KR")
-        log.info(f"  → {len(daily)}개 키워드")
+    # 2. 일간 트렌드 (관련 기사 포함)
+    log.info("구글 일간 트렌드 수집 중...")
+    daily = fetch_daily_trends()
+    log.info(f"  → {len(daily)}건")
 
-        for kw in daily:
-            saved = save_meme(
-                title=str(kw),
-                url=f"https://trends.google.com/trends/explore?q={kw}&geo=KR",
-                source="google_trends",
-                platform="domestic",
-                extra={"type": "daily", "keyword": str(kw)},
-            )
-            if saved:
-                total_new += 1
+    for item in daily:
+        kw       = item["keyword"]
+        articles = item["articles"]
+        category = classify_category(kw)
 
-        time.sleep(2)
-    except Exception as e:
-        log.warning(f"일간 트렌드 실패: {e}")
+        saved = save_meme(
+            title=kw,
+            url=f"https://trends.google.com/trends/explore?q={kw}&geo=KR",
+            source="google_trends",
+            platform="domestic",
+            category=category,
+            related_links=articles,  # 관련 기사 자동 연결!
+            extra={"type": "daily"},
+        )
+        if saved:
+            total_new += 1
 
-    # 3. 밈 관련 키워드 트렌드 점수 조회
-    log.info("밈 관련 키워드 트렌드 점수 조회 중...")
-    meme_keywords = [
-        ["버터떡", "창억떡", "봄동비빔밥"],
-        ["밈", "짤방", "유행어"],
-        ["챌린지", "트렌드", "바이럴"],
-    ]
-
-    for kw_group in meme_keywords:
-        try:
-            pytrends.build_payload(kw_group, geo="KR", timeframe="now 1-d")
-            interest = pytrends.interest_over_time()
-
-            if interest.empty:
-                continue
-
-            # 최근 점수가 높은 키워드만 저장
-            latest = interest.iloc[-1]
-            for kw in kw_group:
-                if kw not in latest:
-                    continue
-                score = int(latest[kw])
-                if score < 20:  # 관심도 20 미만 스킵
-                    continue
-
-                saved = save_meme(
-                    title=f"{kw} (트렌드 점수: {score})",
-                    url=f"https://trends.google.com/trends/explore?q={kw}&geo=KR",
-                    source="google_trends",
-                    platform="domestic",
-                    view_count=score,
-                    extra={"type": "interest", "keyword": kw, "score": score},
-                )
-                if saved:
-                    total_new += 1
-
-            time.sleep(3)  # 구글 트렌드 요청 제한 방지
-        except Exception as e:
-            log.warning(f"키워드 그룹 {kw_group} 실패: {e}")
+        time.sleep(1)
 
     log.info(f"구글 트렌드 완료 — 신규 {total_new}건")
     return total_new

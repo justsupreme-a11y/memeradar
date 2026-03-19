@@ -15,8 +15,7 @@ def get_client() -> Client:
     return _client
 
 
-def make_content_hash(title: str, source: str) -> str:
-    """제목+소스로 중복 감지용 해시 생성"""
+def make_hash(title: str, source: str) -> str:
     raw = f"{source}:{title.strip().lower()}"
     return hashlib.md5(raw.encode()).hexdigest()
 
@@ -24,45 +23,44 @@ def make_content_hash(title: str, source: str) -> str:
 def save_meme(
     title: str,
     url: str,
-    source: str,          # "dcinside" | "fmkorea" | "youtube"
-    platform: str,        # "domestic" | "global"
+    source: str,
+    platform: str,
     image_url: str = "",
     view_count: int = 0,
     like_count: int = 0,
     comment_count: int = 0,
+    category: str = "general",       # fb | fashion | celeb | general
+    related_links: list = [],         # [{title, url, source}]
     extra: dict = {},
 ) -> bool:
-    """
-    밈 데이터를 Supabase memes 테이블에 저장.
-    content_hash로 중복이면 스킵하고 False 반환.
-    """
     db = get_client()
-    content_hash = make_content_hash(title, source)
+    content_hash = make_hash(title, source)
 
-    # 중복 체크
-    existing = (
-        db.table("memes")
-        .select("id")
-        .eq("content_hash", content_hash)
-        .execute()
-    )
-    if existing.data:
-        return False  # 이미 존재
+    try:
+        existing = db.table("memes").select("id").eq("content_hash", content_hash).execute()
+        if existing.data:
+            return False
+    except Exception:
+        return False
 
-    db.table("memes").insert({
-        "title": title,
-        "url": url,
-        "source": source,
-        "platform": platform,
-        "image_url": image_url,
-        "view_count": view_count,
-        "like_count": like_count,
-        "comment_count": comment_count,
-        "content_hash": content_hash,
-        "flow_type": None,       # 분류 레이어에서 채워짐
-        "lifecycle_stage": None, # 분류 레이어에서 채워짐
-        "extra": extra,
-        "collected_at": datetime.now(timezone.utc).isoformat(),
-    }).execute()
-
-    return True  # 새로 저장됨
+    try:
+        db.table("memes").insert({
+            "title":         title,
+            "url":           url,
+            "source":        source,
+            "platform":      platform,
+            "image_url":     image_url,
+            "view_count":    view_count,
+            "like_count":    like_count,
+            "comment_count": comment_count,
+            "category":      category,
+            "related_links": related_links,
+            "content_hash":  content_hash,
+            "extra":         extra,
+            "collected_at":  datetime.now(timezone.utc).isoformat(),
+        }).execute()
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"DB 저장 실패: {e}")
+        return False
