@@ -1,72 +1,74 @@
 """
-YouTube 밈 전문 채널 크롤러 v2
-- 국내 + 해외 밈 채널
-- 카테고리 자동 분류 추가
+YouTube 급상승 쇼츠 크롤러
+- KR 급상승 영상 중 쇼츠 위주 수집
+- 기존 save_meme / classify_category 그대로 사용
 """
 
 import os
 import logging
-from datetime import datetime, timedelta, timezone
+import hashlib
+from datetime import datetime, timezone
+from typing import List, Dict
+
+import isodate
 from googleapiclient.discovery import build
+
 from utils.db import save_meme
 from utils.category import classify_category
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [yt_meme] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [yt_trending] %(message)s")
 log = logging.getLogger(__name__)
 
 YT_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
-MEME_CHANNELS = [
-    # 해외 밈 채널
-    {"id": "UCHRFMBxHOhqBjrVnZHKmGlA", "name": "Know Your Meme",     "platform": "global"},
-    {"id": "UCddiUEpeqJcYeBxX1IVBKvQ", "name": "The finest",          "platform": "global"},
-    {"id": "UCpko_-a4wgz2u_DgDgd9fqA", "name": "Daily Dose of Memes", "platform": "global"},
-
-    # 국내 유머/밈 채널
-    {"id": "UCQ2KSP4dUBMoNpnnNRjT5LA", "name": "피식대학",   "platform": "domestic"},
-    {"id": "UCK4s70-bFSFMVVdDTMKnorg", "name": "숏박스",     "platform": "domestic"},
-    {"id": "UCo-Gj-XMXF1EiCDsWbqSEKw", "name": "흑자헬스",  "platform": "domestic"},
-    {"id": "UCsJ6RuBiohBWBS7fH8f7mAg", "name": "워크맨",     "platform": "domestic"},
+# 급상승 카테고리 (KR)
+TRENDING_CATEGORIES = [
+    ("0",  "all"),      # 전체
+    ("24", "entertain"),  # 엔터테인먼트
+    ("22", "people"),     # 인물/블로그
 ]
 
-MAX_RESULTS = 10
+MAX_RESULTS = 50  # 카테고리당 최대 50개
 
 
 def build_service():
     return build("youtube", "v3", developerKey=YT_API_KEY)
 
 
-def fetch_channel_videos(service, channel_id: str) -> list[dict]:
-    published_after = (
-        datetime.now(timezone.utc) - timedelta(hours=72)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _make_hash(video_id: str) -> str:
+    return hashlib.md5(f"yt_trending_{video_id}".encode()).hexdigest()
 
+
+def fetch_trending_videos(service, category_id: str) -> List[Dict]:
+    """
+    YouTube 급상승 목록 (KR) 조회
+    - contentDetails까지 같이 받아서 duration 추가 호출 없이 사용
+    """
     try:
-        resp = service.search().list(
-            part="snippet",
-            channelId=channel_id,
-            order="date",
-            publishedAfter=published_after,
+        resp = service.videos().list(
+            part="snippet,statistics,contentDetails",
+            chart="mostPopular",
+            regionCode="KR",
+            videoCategoryId=category_id,
             maxResults=MAX_RESULTS,
-            type="video",
         ).execute()
         return resp.get("items", [])
     except Exception as e:
-        log.warning(f"채널 {channel_id} 실패: {e}")
+        log.warning(f"급상승 API 실패 (category={category_id}): {e}")
         return []
 
 
-def fetch_stats(service, video_ids: list[str]) -> dict:
-    if not video_ids:
-        return {}
+def _is_shorts(item: Dict) -> bool:
+    """
+    쇼츠 판정:
+    - duration 60초 이하
+    """
     try:
-        resp = service.videos().list(
-            part="statistics",
-            id=",".join(video_ids),
-        ).execute()
-        return {item["id"]: item.get("statistics", {}) for item in resp.get("items", [])}
+        duration_str = item["contentDetails"]["duration"]
+        seconds = isodate.parse_duration(duration_str).total_seconds()
+        return seconds <= 60
     except Exception:
-        return {}
+        return False
 
 
 def run():
@@ -74,28 +76,30 @@ def run():
         log.error("YOUTUBE_API_KEY 없음")
         return 0
 
-    service   = build_service()
+    service = build_service()
     total_new = 0
+    seen_ids = set()
 
-    for channel in MEME_CHANNELS:
-        log.info(f"수집: {channel['name']}")
-        videos = fetch_channel_videos(service, channel["id"])
-        log.info(f"  → {len(videos)}건")
+    for category_id, category_name in TRENDING_CATEGORIES:
+        log.info(f"수집: KR 급상승 ({category_name})")
+        items = fetch_trending_videos(service, category_id)
+        log.info(f"  → 급상승 {len(items)}건")
 
-        if not videos:
-            continue
+        # 쇼츠만 사용 (원하면 여기서 일반 영상까지 포함하도록 옵션 바꿀 수 있음)
+        shorts_items = [it for it in items if _is_shorts(it)]
+        log.info(f"  → 쇼츠 {len(shorts_items)}건")
 
-        ids       = [v["id"]["videoId"] for v in videos if v.get("id", {}).get("videoId")]
-        stats_map = fetch_stats(service, ids)
-
-        for v in videos:
-            video_id = v.get("id", {}).get("videoId")
-            if not video_id:
+        for item in shorts_items:
+            video_id = item.get("id")
+            if not video_id or video_id in seen_ids:
                 continue
+            seen_ids.add(video_id)
 
-            snippet   = v.get("snippet", {})
-            stats     = stats_map.get(video_id, {})
+            snippet = item.get("snippet", {})
+            stats   = item.get("statistics", {})
+
             title     = snippet.get("title", "")
+            channel   = snippet.get("channelTitle", "")
             thumbnail = snippet.get("thumbnails", {}).get("high", {}).get("url", "")
             published = snippet.get("publishedAt", "")
 
@@ -107,24 +111,30 @@ def run():
 
             saved = save_meme(
                 title=title,
-                url=f"https://www.youtube.com/watch?v={video_id}",
-                source="youtube_meme_ch",
-                platform=channel["platform"],
+                url=f"https://www.youtube.com/shorts/{video_id}",
+                source=f"youtube_trending_{category_name}",
+                platform="domestic",  # KR 급상승 기준이니 일단 domestic으로 태깅
                 image_url=thumbnail,
                 view_count=view_count,
                 like_count=like_count,
                 comment_count=comment_count,
+                content_hash=_make_hash(video_id),
                 category=category,
                 extra={
                     "video_id":     video_id,
-                    "channel":      channel["name"],
+                    "channel":      channel,
                     "published_at": published,
+                    "trending_cat": category_name,
+                    "region":       "KR",
+                    "collected_at": datetime.now(timezone.utc).isoformat(),
+                    "is_shorts":    True,
                 },
             )
+
             if saved:
                 total_new += 1
 
-    log.info(f"YouTube 밈채널 완료 — 신규 {total_new}건")
+    log.info(f"YouTube 급상승 쇼츠 완료 — 신규 {total_new}건")
     return total_new
 
 
