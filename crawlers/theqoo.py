@@ -1,7 +1,8 @@
 """
-더쿠 크롤러
-- theqoo.net/hot — 핫 게시판
-- 셀럽/아이돌 관련 밈 원산지
+더쿠 크롤러 v2
+- 공지/이벤트/광고 제외
+- 조회수 + 댓글수 기준 필터링
+- HOT 게시판만 수집
 """
 
 import time
@@ -24,10 +25,23 @@ HEADERS = {
 BASE_URL = "https://theqoo.net"
 
 BOARDS = [
-    {"url": f"{BASE_URL}/hot",     "name": "HOT"},
-    {"url": f"{BASE_URL}/hot2",    "name": "HOT2"},
-    {"url": f"{BASE_URL}/square",  "name": "스퀘어"},
+    {"url": f"{BASE_URL}/hot",  "name": "HOT"},
+    {"url": f"{BASE_URL}/hot2", "name": "HOT2"},
 ]
+
+# 제목에 이게 포함되면 스킵
+SKIP_KEYWORDS = [
+    "공지", "notice", "안내", "이벤트", "event", "광고",
+    "운영", "신고", "규정", "공고", "모집", "투표",
+]
+
+MIN_VIEWS    = 5000   # 조회수 최소
+MIN_COMMENTS = 10     # 댓글수 최소
+
+
+def is_notice(title: str) -> bool:
+    t = title.lower()
+    return any(kw in t for kw in SKIP_KEYWORDS)
 
 
 def fetch_board(url: str, name: str) -> list[dict]:
@@ -39,23 +53,31 @@ def fetch_board(url: str, name: str) -> list[dict]:
         posts = []
         seen  = set()
 
-        for row in soup.select("table.bd_lst tr, .bd_lst_wrap tr"):
-            title_el = row.select_one("td.title a, .title a")
+        for row in soup.select("table.bd_lst tr"):
+            # 공지 행 스킵 (class에 notice 포함)
+            row_class = " ".join(row.get("class", []))
+            if "notice" in row_class or "gong" in row_class:
+                continue
+
+            title_el = row.select_one("td.title a")
             if not title_el:
                 continue
 
             title = title_el.text.strip()
             href  = title_el.get("href", "")
+
             if not title or not href or href in seen:
                 continue
             if len(title) < 2:
+                continue
+            if is_notice(title):
                 continue
 
             seen.add(href)
             url_full = BASE_URL + href if href.startswith("/") else href
 
             # 조회수
-            view_el    = row.select_one("td.m_no, .m_no")
+            view_el = row.select_one("td.m_no")
             view_count = 0
             if view_el:
                 try:
@@ -63,10 +85,24 @@ def fetch_board(url: str, name: str) -> list[dict]:
                 except Exception:
                     pass
 
+            # 댓글수
+            comment_el = row.select_one("td.reply_num, .reply")
+            comment_count = 0
+            if comment_el:
+                try:
+                    comment_count = int(comment_el.text.strip().replace(",", "").strip("[]"))
+                except Exception:
+                    pass
+
+            # 조회수/댓글 필터
+            if view_count < MIN_VIEWS and comment_count < MIN_COMMENTS:
+                continue
+
             posts.append({
-                "title":      title,
-                "url":        url_full,
-                "view_count": view_count,
+                "title":         title,
+                "url":           url_full,
+                "view_count":    view_count,
+                "comment_count": comment_count,
             })
 
         return posts
@@ -82,7 +118,7 @@ def run():
     for board in BOARDS:
         log.info(f"수집: 더쿠 {board['name']}")
         posts = fetch_board(board["url"], board["name"])
-        log.info(f"  → {len(posts)}건")
+        log.info(f"  → {len(posts)}건 (필터 후)")
 
         for post in posts:
             category = classify_category(post["title"])
@@ -92,6 +128,7 @@ def run():
                 source="theqoo",
                 platform="domestic",
                 view_count=post["view_count"],
+                comment_count=post["comment_count"],
                 category=category,
                 extra={"board": board["name"]},
             )
