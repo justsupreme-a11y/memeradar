@@ -1,6 +1,7 @@
 """
-네이트판 크롤러
-- pann.nate.com/talk/ranking — 실시간 인기글
+네이트판 크롤러 v2
+- pann.nate.com/talk/ranking — 톡커들의 선택 (실시간 인기)
+- JavaScript 렌더링 없이 파싱 가능
 """
 
 import time
@@ -16,6 +17,7 @@ log = logging.getLogger(__name__)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "ko-KR,ko;q=0.9",
     "Referer": "https://pann.nate.com/",
 }
@@ -23,8 +25,9 @@ HEADERS = {
 BASE_URL = "https://pann.nate.com"
 
 BOARDS = [
-    {"url": f"{BASE_URL}/talk/ranking",         "name": "실시간 인기"},
-    {"url": f"{BASE_URL}/talk/ranking?type=d",  "name": "일간 인기"},
+    {"url": f"{BASE_URL}/talk/ranking",       "name": "실시간 인기"},
+    {"url": f"{BASE_URL}/talk/ranking?type=d","name": "일간 인기"},
+    {"url": f"{BASE_URL}/talk/c20030",        "name": "엔터톡"},
 ]
 
 
@@ -37,8 +40,9 @@ def fetch_board(url: str, name: str) -> list[dict]:
         posts = []
         seen  = set()
 
-        for item in soup.select(".post-item, .ranking-list li, li.item"):
-            title_el = item.select_one("a.title, .title a, strong a, h4 a")
+        # 네이트판 실제 HTML 구조
+        for item in soup.select("ul.talk_list li, .list_talk li, .ranking_list li, li.item"):
+            title_el = item.select_one("a.subject, a.tit, strong a, .title a, h4 a, h3 a, a[href*='/talk/']")
             if not title_el:
                 continue
 
@@ -46,23 +50,25 @@ def fetch_board(url: str, name: str) -> list[dict]:
             href  = title_el.get("href", "")
             if not title or not href or href in seen:
                 continue
+            if len(title) < 3:
+                continue
 
             seen.add(href)
             url_full = BASE_URL + href if href.startswith("/") else href
 
-            vote_el   = item.select_one(".num-recomm, .vote, .like")
-            view_el   = item.select_one(".num-view, .view")
+            # 조회수/추천수
+            view_el = item.select_one(".num_view, .view, span.cnt")
+            like_el = item.select_one(".num_recomm, .recomm, .like")
             view_count = 0
             like_count = 0
-
             if view_el:
                 try:
-                    view_count = int(view_el.text.strip().replace(",", ""))
+                    view_count = int(view_el.text.strip().replace(",","").replace("조회","").strip())
                 except Exception:
                     pass
-            if vote_el:
+            if like_el:
                 try:
-                    like_count = int(vote_el.text.strip().replace(",", ""))
+                    like_count = int(like_el.text.strip().replace(",","").replace("추천","").strip())
                 except Exception:
                     pass
 
@@ -73,6 +79,19 @@ def fetch_board(url: str, name: str) -> list[dict]:
                 "like_count": like_count,
             })
 
+        # 셀렉터 실패 시 a[href*='/talk/'] 폴백
+        if not posts:
+            for a in soup.select("a[href*='/talk/']"):
+                title = a.text.strip()
+                href  = a.get("href", "")
+                if not title or not href or href in seen or len(title) < 5:
+                    continue
+                if href in ("/talk/ranking", "/talk/"):
+                    continue
+                seen.add(href)
+                url_full = BASE_URL + href if href.startswith("/") else href
+                posts.append({"title": title, "url": url_full, "view_count": 0, "like_count": 0})
+
         return posts
 
     except Exception as e:
@@ -82,19 +101,23 @@ def fetch_board(url: str, name: str) -> list[dict]:
 
 def run():
     total_new = 0
+    global_seen = set()
 
     for board in BOARDS:
         log.info(f"수집: 네이트판 {board['name']}")
         posts = fetch_board(board["url"], board["name"])
-        log.info(f"  → {len(posts)}건")
 
-        for post in posts:
+        unique = [p for p in posts if p["url"] not in global_seen]
+        for p in unique:
+            global_seen.add(p["url"])
+
+        log.info(f"  → {len(unique)}건")
+
+        for post in unique:
             category = classify_category(post["title"])
             saved = save_meme(
-                title=post["title"],
-                url=post["url"],
-                source="pannate",
-                platform="domestic",
+                title=post["title"], url=post["url"],
+                source="pannate", platform="domestic",
                 view_count=post["view_count"],
                 like_count=post["like_count"],
                 category=category,
@@ -107,7 +130,6 @@ def run():
 
     log.info(f"네이트판 완료 — 신규 {total_new}건")
     return total_new
-
 
 if __name__ == "__main__":
     run()
