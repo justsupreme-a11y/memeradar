@@ -1,12 +1,16 @@
 import os
 import hashlib
+import logging
 from datetime import datetime, timezone
 from supabase import create_client, Client
+
+log = logging.getLogger(__name__)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 _client: Client | None = None
+
 
 def get_client() -> Client:
     global _client
@@ -29,10 +33,20 @@ def save_meme(
     view_count: int = 0,
     like_count: int = 0,
     comment_count: int = 0,
-    category: str = "general",       # fb | fashion | celeb | general
-    related_links: list = [],         # [{title, url, source}]
+    category: str = "general",
+    related_links: list = [],
     extra: dict = {},
+    skip_filter: bool = False,  # 큐레이션 소스는 필터 스킵
 ) -> bool:
+    # 밈 필터 적용
+    if not skip_filter:
+        try:
+            from utils.meme_filter import is_meme_worthy
+            if not is_meme_worthy(title, source):
+                return False
+        except Exception as e:
+            log.debug(f"필터 오류 (무시): {e}")
+
     db = get_client()
     content_hash = make_hash(title, source)
 
@@ -61,6 +75,5 @@ def save_meme(
         }).execute()
         return True
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"DB 저장 실패: {e}")
+        log.error(f"DB 저장 실패: {e}")
         return False
