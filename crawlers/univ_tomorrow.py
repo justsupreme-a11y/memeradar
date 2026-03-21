@@ -1,7 +1,6 @@
 """
-대학내일 크롤러 v3
-- 실제 URL 확인: univ20.com
-- 트렌드/문화 기사 수집
+대학내일 크롤러 v4
+- univ20.com 실제 URL 재확인
 """
 
 import time
@@ -21,14 +20,17 @@ HEADERS = {
     "Referer": "https://univ20.com/",
 }
 
-SITES = [
-    {"url": "https://univ20.com",                "name": "대학내일"},
-    {"url": "https://univ20.com/campus",         "name": "캠퍼스"},
-    {"url": "https://univ20.com/trendy",         "name": "트렌디"},
+BASE_URL = "https://univ20.com"
+
+SECTIONS = [
+    {"url": BASE_URL,                          "name": "메인"},
+    {"url": f"{BASE_URL}/trendy",              "name": "트렌디"},
+    {"url": f"{BASE_URL}/hot",                 "name": "핫"},
+    {"url": f"{BASE_URL}/culture",             "name": "컬처"},
 ]
 
 
-def fetch_site(url: str, name: str) -> list[dict]:
+def fetch_section(url: str, name: str) -> list[dict]:
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
@@ -37,41 +39,30 @@ def fetch_site(url: str, name: str) -> list[dict]:
         items = []
         seen  = set()
 
-        selectors = [
-            "article a", ".post a", ".article a",
-            "h2 a", "h3 a", "h4 a",
-            ".title a", ".headline a",
-            "a.article-title", "a.post-title",
-        ]
+        # 다양한 셀렉터 시도
+        for el in soup.select("a[href*='univ20.com'], article a, .post a, h2 a, h3 a, h4 a, .title a, .headline a"):
+            title = el.text.strip()
+            href  = el.get("href", "")
+            if not title or not href or href in seen:
+                continue
+            if len(title) < 5:
+                continue
+            if href in (BASE_URL, BASE_URL + "/", "#", "/"):
+                continue
 
-        for sel in selectors:
-            for el in soup.select(sel):
-                title = el.text.strip()
-                href  = el.get("href", "")
-                if not title or not href or href in seen:
-                    continue
-                if len(title) < 5:
-                    continue
-                if href in ("#", "/", url):
-                    continue
-                seen.add(href)
+            if not href.startswith("http"):
+                href = BASE_URL + href
 
-                if not href.startswith("http"):
-                    href = "https://univ20.com" + href
+            seen.add(href)
 
-                img_el = el.find_previous("img") or el.find_next("img")
-                image_url = ""
-                if img_el:
-                    image_url = img_el.get("src") or img_el.get("data-src") or ""
+            img_el = el.find_previous("img") or el.find_next("img")
+            image_url = ""
+            if img_el:
+                image_url = img_el.get("src") or img_el.get("data-src") or ""
 
-                items.append({
-                    "title":     title,
-                    "url":       href,
-                    "image_url": image_url,
-                })
+            items.append({"title": title, "url": href, "image_url": image_url})
 
         return items[:20]
-
     except Exception as e:
         log.warning(f"대학내일 {name} 실패: {e}")
         return []
@@ -79,22 +70,27 @@ def fetch_site(url: str, name: str) -> list[dict]:
 
 def run():
     total_new = 0
+    global_seen = set()
 
-    for site in SITES:
-        log.info(f"수집: {site['name']}")
-        items = fetch_site(site["url"], site["name"])
-        log.info(f"  → {len(items)}건")
+    for section in SECTIONS:
+        log.info(f"수집: {section['name']}")
+        items = fetch_section(section["url"], section["name"])
 
+        unique = []
         for item in items:
+            if item["url"] not in global_seen:
+                global_seen.add(item["url"])
+                unique.append(item)
+
+        log.info(f"  → {len(unique)}건")
+
+        for item in unique:
             category = classify_category(item["title"])
             saved = save_meme(
-                title=item["title"],
-                url=item["url"],
-                source="univ_tomorrow",
-                platform="domestic",
-                image_url=item["image_url"],
-                category=category,
-                extra={"section": site["name"]},
+                title=item["title"], url=item["url"],
+                source="univ_tomorrow", platform="domestic",
+                image_url=item["image_url"], category=category,
+                extra={"section": section["name"]},
             )
             if saved:
                 total_new += 1
@@ -103,7 +99,6 @@ def run():
 
     log.info(f"대학내일 완료 — 신규 {total_new}건")
     return total_new
-
 
 if __name__ == "__main__":
     run()
