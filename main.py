@@ -4,36 +4,37 @@
 import sys, os, logging, argparse, importlib
 sys.path.insert(0, os.path.dirname(__file__))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
 
 CRAWLERS = {
     # 국내 커뮤니티
-    "instiz":    ("인스티즈",    "crawlers.instiz",          "run"),
-    "theqoo":    ("더쿠",        "crawlers.theqoo",           "run"),
-    "pannate":   ("네이트판",    "crawlers.pannate",          "run"),
+    "instiz":       ("인스티즈",      "crawlers.instiz",          "run"),
+    "theqoo":       ("더쿠",          "crawlers.theqoo",           "run"),
+    "pannate":      ("네이트판",      "crawlers.pannate",          "run"),
+    "mlbpark":      ("MLB파크",       "crawlers.mlbpark",          "run"),
+    # 국내 셀럽/연예
+    "dispatch":     ("디스패치",      "crawlers.dispatch",         "run"),
     # 국내 트렌드/미디어
-    "goguma":    ("고구마팜",    "crawlers.gogumafarm",       "run"),
-    "univ":      ("대학내일",    "crawlers.univ_tomorrow",    "run"),
-    "mkt":       ("마케팅인사이트","crawlers.mkt_insight",    "run"),
-    # 해외 커뮤니티
-    "reddit":    ("Reddit",     "crawlers.reddit",           "run"),
-    "kym":       ("KYM",        "crawlers.kym",              "run"),
-    "wikipedia": ("Wikipedia",  "crawlers.wikipedia",        "run"),
-    # 패션 매거진
-    "fashion":   ("패션매거진",  "crawlers.fashion_mag",     "run"),
+    "goguma":       ("고구마팜",      "crawlers.gogumafarm",       "run"),
+    "univ":         ("대학내일",      "crawlers.univ_tomorrow",    "run"),
+    "mkt":          ("마케팅인사이트","crawlers.mkt_insight",      "run"),
+    # 패션
+    "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
+    "dfashion":     ("데일리패션",    "crawlers.dailyfashion",     "run"),
+    # 해외
+    "reddit":       ("Reddit",        "crawlers.reddit",           "run"),
+    "kym":          ("KYM",           "crawlers.kym",              "run"),
+    "wikipedia":    ("Wikipedia",     "crawlers.wikipedia",        "run"),
+    "imgur":        ("Imgur",         "crawlers.imgur",            "run"),
     # 영상
-    "yt":        ("YouTube",    "crawlers.youtube_trending", "run"),
+    "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
-    "gtrends":   ("구글 트렌드", "crawlers.google_trends",   "run"),
+    "gtrends":      ("구글 트렌드",   "crawlers.google_trends",    "run"),
 }
 
 
-def run_crawlers(targets: list[str]):
+def run_crawlers(targets):
     results = {}
     for key in targets:
         if key not in CRAWLERS:
