@@ -17,7 +17,8 @@ YT_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 REGIONS = [
     {"code": "KR", "platform": "domestic", "label": "국내 급상승"},
-    {"code": "US", "platform": "global",   "label": "해외 급상승"},
+    # US 제거 — 해외 급상승은 한국 밈 문화와 접점이 낮음
+    # 해외 밈 유입 감지는 KYM + 구글트렌드 교차 매칭으로 대체
 ]
 
 # YouTube videoCategoryId
@@ -35,15 +36,15 @@ TREND_CATEGORIES = [
 # 워크맨 제외
 # 채널 ID는 필요시 운영 중 교체
 MEME_CHANNELS = [
-    # 해외
-    {"id": "UCHRFMBxHOhqBjrVnZHKmGlA", "name": "Know Your Meme",      "platform": "global"},
-    {"id": "UCpko_-a4wgz2u_DgDgd9fqA", "name": "Daily Dose of Memes", "platform": "global"},
-
-    # 국내
-    {"id": "UCQ2KSP4dUBMoNpnnNRjT5LA", "name": "피식대학", "platform": "domestic"},
-    {"id": "UCK4s70-bFSFMVVdDTMKnorg", "name": "숏박스",   "platform": "domestic"},
-    {"id": "UCM2PEMvNjFOPMhBJJrCEBzA", "name": "침착맨",   "platform": "domestic"},
-    {"id": "UCuPDTBDvDpXciCBJsQNRSOQ", "name": "젼언니",   "platform": "domestic"},
+    # 국내 밈/유머 채널
+    # ※ 채널 ID는 youtube.com/@채널명 접속 후 소스에서 확인 필요
+    # 아래 ID 중 일부가 구버전일 수 있음 — playlist 조회 실패 시 ID 재확인
+    {"id": "UCGX5sP4ehBkihHwt5bs5wvg", "name": "피식대학", "platform": "domestic"},  # 업데이트됨
+    {"id": "UCK4s70-bFSFMVVdDTMKnorg", "name": "숏박스",   "platform": "domestic"},  # 확인 필요
+    {"id": "UCM2PEMvNjFOPMhBJJrCEBzA", "name": "침착맨",   "platform": "domestic"},  # 확인 필요
+    {"id": "UCuPDTBDvDpXciCBJsQNRSOQ", "name": "젼언니",   "platform": "domestic"},  # 확인 필요
+    # KYM / Daily Dose of Memes 제거 — playlist 조회 실패 지속 + 해외 채널
+    # 해외 밈은 kym.py 크롤러(뉴스피드)로 별도 수집
 ]
 
 TREND_MAX_RESULTS = 20
