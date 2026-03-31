@@ -3,7 +3,6 @@
 """
 import sys, os, logging, argparse, importlib
 sys.path.insert(0, os.path.dirname(__file__))
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
 
@@ -18,21 +17,22 @@ CRAWLERS = {
     # 국내 트렌드/미디어
     "goguma":       ("고구마팜",      "crawlers.gogumafarm",       "run"),
     "univ":         ("대학내일",      "crawlers.univ_tomorrow",    "run"),
-    "mkt":          ("마케팅인사이트","crawlers.mkt_insight",      "run"),
     # 패션
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
-    "dfashion":     ("데일리패션",    "crawlers.dailyfashion",     "run"),
     # 해외
-    "reddit":       ("Reddit",        "crawlers.reddit",           "run"),
     "kym":          ("KYM",           "crawlers.kym",              "run"),
     "wikipedia":    ("Wikipedia",     "crawlers.wikipedia",        "run"),
-    "imgur":        ("Imgur",         "crawlers.imgur",            "run"),
     # 영상
     "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
     "gtrends":      ("구글 트렌드",   "crawlers.google_trends",    "run"),
-}
 
+    # ── 제거된 크롤러 ────────────────────────────────────
+    # "mkt":    DNS 없음 / 전체 404 (HS애드, 대홍기획, 오픈서베이)
+    # "dfashion": DNS 없음 (www.dailyfashion.co.kr)
+    # "reddit": 403 전체 차단 (datacenter IP ban)
+    # "imgur":  모듈 파일 없음
+}
 
 def run_crawlers(targets):
     results = {}
@@ -49,7 +49,6 @@ def run_crawlers(targets):
         except Exception as e:
             log.error(f"{name} 오류: {e}")
             results[name] = 0
-
     log.info("=" * 40)
     log.info("전체 완료 요약")
     for n, c in results.items():
@@ -57,7 +56,6 @@ def run_crawlers(targets):
     log.info(f"  합계: {sum(results.values())}건")
     log.info("=" * 40)
     return results
-
 
 def run_classifier():
     log.info("=" * 40)
@@ -69,7 +67,6 @@ def run_classifier():
     except Exception as e:
         log.error(f"분류기 오류: {e}")
         return 0
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
