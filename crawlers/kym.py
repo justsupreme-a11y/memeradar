@@ -1,9 +1,9 @@
 """
-Know Your Meme 크롤러 v3
-- 트렌딩 URL: knowyourmeme.com/newsfeed/trending (확인됨)
-- 방식: requests + BeautifulSoup
+Know Your Meme 크롤러 v4
+- /memes/trending → 404 확인, 제거
+- trending.knowyourmeme.com 신규 서브도메인 추가
+- /newsfeed/trending 유지 (작동 중)
 """
-
 import time
 import random
 import logging
@@ -22,12 +22,29 @@ HEADERS = {
     "Referer": "https://knowyourmeme.com/",
 }
 
-BASE_URL = "https://knowyourmeme.com"
+BASE_URL     = "https://knowyourmeme.com"
+TRENDING_URL = "https://trending.knowyourmeme.com"
 
 PAGES = [
-    {"url": f"{BASE_URL}/newsfeed/trending", "label": "트렌딩"},
-    {"url": f"{BASE_URL}/memes/trending",    "label": "밈 트렌딩"},
-    {"url": f"{BASE_URL}/memes",             "label": "최신 밈"},
+    {"url": f"{BASE_URL}/newsfeed/trending",  "label": "뉴스피드 트렌딩"},   # 기존 — 작동 확인
+    {"url": f"{TRENDING_URL}/trending",       "label": "트렌딩 서브도메인"}, # 신규 — 2025년 추가
+    {"url": f"{BASE_URL}/memes",              "label": "최신 밈"},
+    # /memes/trending → 404 확인, 제거
+]
+
+SELECTORS = [
+    "h2 a[href*='/memes/']",
+    "h1 a[href*='/memes/']",
+    "a.entry-title[href*='/memes/']",
+    ".entry h2 a",
+    ".newsfeed h2 a",
+    "article h2 a",
+    "article h3 a",
+    ".infinite-scroll-component a[href*='/memes/']",
+    # trending 서브도메인용 추가 셀렉터
+    "a[href*='/memes/']",
+    ".trending-entry a",
+    ".entry-grid-body a",
 ]
 
 
@@ -40,19 +57,7 @@ def fetch_page(url: str, label: str) -> list[dict]:
         items = []
         seen  = set()
 
-        # 다양한 셀렉터 시도
-        selectors = [
-            "h2 a[href*='/memes/']",
-            "h1 a[href*='/memes/']",
-            "a.entry-title[href*='/memes/']",
-            ".entry h2 a",
-            ".newsfeed h2 a",
-            "article h2 a",
-            "article h3 a",
-            ".infinite-scroll-component a[href*='/memes/']",
-        ]
-
-        for sel in selectors:
+        for sel in SELECTORS:
             for el in soup.select(sel):
                 title = el.text.strip()
                 href  = el.get("href", "")
@@ -72,11 +77,7 @@ def fetch_page(url: str, label: str) -> list[dict]:
                     if image_url.startswith("//"):
                         image_url = "https:" + image_url
 
-                items.append({
-                    "title":     title,
-                    "url":       href,
-                    "image_url": image_url,
-                })
+                items.append({"title": title, "url": href, "image_url": image_url})
 
         return items
 
