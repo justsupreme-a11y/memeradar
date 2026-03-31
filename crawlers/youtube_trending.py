@@ -35,16 +35,32 @@ TREND_CATEGORIES = [
 
 # 워크맨 제외
 # 채널 ID는 필요시 운영 중 교체
+# youtube_trending.py 의 MEME_CHANNELS 교체용
+# 업데이트: 2026-03-31
+ 
 MEME_CHANNELS = [
-    # 국내 밈/유머 채널
-    # ※ 채널 ID는 youtube.com/@채널명 접속 후 소스에서 확인 필요
-    # 아래 ID 중 일부가 구버전일 수 있음 — playlist 조회 실패 시 ID 재확인
-    {"id": "UCGX5sP4ehBkihHwt5bs5wvg", "name": "피식대학", "platform": "domestic"},  # 업데이트됨
-    {"id": "UCK4s70-bFSFMVVdDTMKnorg", "name": "숏박스",   "platform": "domestic"},  # 확인 필요
-    {"id": "UCM2PEMvNjFOPMhBJJrCEBzA", "name": "침착맨",   "platform": "domestic"},  # 확인 필요
-    {"id": "UCuPDTBDvDpXciCBJsQNRSOQ", "name": "젼언니",   "platform": "domestic"},  # 확인 필요
-    # KYM / Daily Dose of Memes 제거 — playlist 조회 실패 지속 + 해외 채널
-    # 해외 밈은 kym.py 크롤러(뉴스피드)로 별도 수집
+ 
+    # ── 유머 ──────────────────────────────────────────────
+    {"id": "UCGX5sP4ehBkihHwt5bs5wvg", "name": "피식대학", "platform": "domestic", "category": "humor"},
+    {"id": "UCUj6rrhMTR9pipbAWBAMvUQ", "name": "침착맨",   "platform": "domestic", "category": "humor"},
+    {"id": "UC1B6SalAoiJD7eHfMUA9QrA", "name": "숏박스",   "platform": "domestic", "category": "humor"},
+    {"id": "UCyar0OYt0LoPzkkWcQAo6OA", "name": "젼언니",   "platform": "domestic", "category": "humor"},
+    {"id": "UChbE5OZQ6dRHECsX0tEPEZQ", "name": "장삐쭈",   "platform": "domestic", "category": "humor"},
+ 
+    # ── 음식/먹방 ─────────────────────────────────────────
+    {"id": "UCfpaSruWW3S4dibonKXENjA", "name": "쯔양", "platform": "domestic", "category": "food"},
+    {"id": "UCA6KBBX8cLwYZNepxlE_7SA", "name": "히밥", "platform": "domestic", "category": "food"},
+ 
+    # ── 패션/뷰티 ─────────────────────────────────────────
+    {"id": "UCTdMHmzV9J5gihbNrnuqEvA", "name": "호호시",       "platform": "domestic", "category": "fashion"},
+    {"id": "UCvIgrqonnhMfLsETWAvKLyA", "name": "봄태규",       "platform": "domestic", "category": "fashion"},
+    {"id": "UCzYB6YA5f-Tc7GQcIese7pg", "name": "옆집언니최실장", "platform": "domestic", "category": "fashion"},
+    # 와디즈(@wadiz_tv) — 소스보기에서 channelId 확인 후 추가
+    # {"id": "확인필요", "name": "와디즈", "platform": "domestic", "category": "fashion"},
+ 
+    # ── 연예/셀럽 ─────────────────────────────────────────
+    {"id": "UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG문명특급", "platform": "domestic", "category": "celeb"},
+    # 딩고뮤직 핸들 확인 후 추가
 ]
 
 TREND_MAX_RESULTS = 20
