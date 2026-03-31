@@ -21,7 +21,7 @@ CRAWLERS = {
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
     # 해외
     "kym":          ("KYM",           "crawlers.kym",              "run"),
-    "wikipedia":    ("Wikipedia",     "crawlers.wikipedia",        "run"),
+    # "wikipedia": 제거 — 실시간성 없음, KYM과 역할 중복, 신규 0~1건/회
     # 영상
     "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
