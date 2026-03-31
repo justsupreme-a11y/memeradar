@@ -6,18 +6,19 @@
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from utils.db import get_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [classifier] %(message)s")
 log = logging.getLogger(__name__)
 
 # ── 소스 분류 ──────────────────────────────────────────
-GLOBAL_SOURCES   = {"reddit", "youtube"}   # 해외 플랫폼
-DOMESTIC_SOURCES = {"ruliweb", "ucduk", "naver", "dcinside", "fmkorea"}
+# kym 추가, reddit 제거 (크롤러 제거됨)
+GLOBAL_SOURCES   = {"kym", "youtube"}
+DOMESTIC_SOURCES = {"instiz", "theqoo", "pannate", "mlbpark", "gogumafarm",
+                    "gqkorea", "hypebeast", "hypebeast_en", "google_trends"}
 
 # ── 생애주기 임계값 ────────────────────────────────────
-# 수집된 지 몇 시간 이내 + 조회수 기준으로 단계 판정
 LIFECYCLE_RULES = [
     # (단계,       최대 수집 경과시간h, 최소 조회수, 최대 조회수)
     ("seed",       48,                 0,           500),
@@ -30,63 +31,29 @@ LIFECYCLE_RULES = [
 # ── 흐름 분류 로직 ─────────────────────────────────────
 
 def classify_flow(meme: dict, all_memes_index: dict) -> str:
-    source = meme["source"]
-    
-    # 소스 기반 1차 판정 (가장 확실한 기준)
-    if source in {"reddit"}:
-        return "inflow"  # Reddit은 무조건 해외→국내 유입
-    
-    if source in {"youtube", "youtube_meme_ch"}:
-        platform = meme.get("platform", "")
-        if platform == "global":
-            return "inflow"
+    source   = meme["source"]
+    platform = meme.get("platform", "")
+
+    # 소스 기반 1차 판정
+    if source == "kym":
+        return "inflow"  # KYM은 해외→국내 유입
+
+    if source in {"youtube", "youtube_meme_ch", "youtube_trending_hype", "youtube_channel_hype"}:
+        return "inflow" if platform == "global" else "independent"
+
+    if source in {"google_trends", "naver", "naver_realtime"}:
         return "independent"
-    
-    if source in {"x_trends"}:
-        platform = meme.get("platform", "")
-        if platform == "global":
-            return "inflow"
+
+    if source in DOMESTIC_SOURCES:
         return "independent"
-    
-    if source in {"naver", "naver_realtime", "naver_datalab", "google_trends"}:
-        return "independent"  # 국내 검색 트렌드는 독립 생성
-    
-    if source in {"ruliweb", "ucduk", "dcinside", "fmkorea"}:
-        return "independent"  # 국내 커뮤니티는 독립 생성
-    
-    # 나머지는 기존 타임스탬프 비교 로직
+
+    # 타임스탬프 비교로 inflow/export 판정
     title_key = _title_key(meme["title"])
     related   = all_memes_index.get(title_key, [])
-    
+
     if not related or len(related) == 1:
         return "independent"
-    
-    global_times   = []
-    domestic_times = []
-    
-    for m in related:
-        t = _parse_time(m["collected_at"])
-        if m["source"] in GLOBAL_SOURCES:
-            global_times.append(t)
-        else:
-            domestic_times.append(t)
-    
-    if not global_times:
-        return "independent"
-    if not domestic_times:
-        return "inflow"
-    
-    earliest_global   = min(global_times)
-    earliest_domestic = min(domestic_times)
-    diff_hours = (earliest_domestic - earliest_global).total_seconds() / 3600
-    
-    if diff_hours > 48:
-        return "export"
-    elif diff_hours < -6:
-        return "inflow"
-    else:
-        return "independent"
-    # 관련 밈들의 최초 등장 시각 분리
+
     global_times   = []
     domestic_times = []
 
@@ -98,30 +65,23 @@ def classify_flow(meme: dict, all_memes_index: dict) -> str:
             domestic_times.append(t)
 
     if not global_times:
-        return "independent"  # 해외 등장 없음 → 국내 독립
-
+        return "independent"
     if not domestic_times:
-        return "inflow"  # 국내 등장 없음 → 아직 유입 전
+        return "inflow"
 
     earliest_global   = min(global_times)
     earliest_domestic = min(domestic_times)
     diff_hours = (earliest_domestic - earliest_global).total_seconds() / 3600
 
     if diff_hours > 48:
-        # 국내가 해외보다 48시간 이상 앞서면 역수출
-        return "export"
+        return "export"       # 국내가 48시간 이상 앞서면 역수출
     elif diff_hours < -6:
-        # 해외가 국내보다 6시간 이상 앞서면 유입
-        return "inflow"
+        return "inflow"       # 해외가 6시간 이상 앞서면 유입
     else:
-        # 비슷한 시기 → 국내 독립 생성으로 보수적 판정
-        return "independent"
+        return "independent"  # 비슷한 시기 → 보수적 판정
 
 
 def classify_lifecycle(meme: dict) -> str:
-    """
-    수집 경과 시간 + 조회수로 생애주기 단계 판정
-    """
     collected_at = _parse_time(meme["collected_at"])
     now          = datetime.now(timezone.utc)
     hours_since  = (now - collected_at).total_seconds() / 3600
@@ -131,19 +91,17 @@ def classify_lifecycle(meme: dict) -> str:
         if hours_since <= max_hours and min_views <= view_count <= max_views:
             return stage
 
-    return "fade"  # 기본값
+    return "fade"
 
 
 # ── 헬퍼 ──────────────────────────────────────────────
 
 def _title_key(title: str) -> str:
-    """제목 앞 3단어를 소문자로 정규화 → 유사 밈 묶기용 키"""
     words = title.strip().lower().split()
     return " ".join(words[:3])
 
 
 def _parse_time(ts) -> datetime:
-    """Supabase timestamp 문자열 → timezone-aware datetime"""
     if isinstance(ts, datetime):
         return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
     try:
@@ -159,7 +117,6 @@ def run():
     db = get_client()
     log.info("미분류 밈 조회 중...")
 
-    # 아직 분류 안 된 것만 가져오기
     resp = (
         db.table("memes")
         .select("*")
@@ -175,7 +132,7 @@ def run():
         log.info("처리할 밈 없음")
         return 0
 
-    # 전체 밈 인덱스 구성 (title_key → [meme, ...])
+    # 전체 밈 인덱스 (title_key → [meme, ...])
     all_resp = (
         db.table("memes")
         .select("id, title, source, collected_at")
@@ -191,7 +148,7 @@ def run():
         index.setdefault(key, []).append(m)
 
     # 분류 실행
-    updated = 0
+    updated          = 0
     flow_counts      = {"inflow": 0, "independent": 0, "export": 0}
     lifecycle_counts = {"seed": 0, "spread": 0, "peak": 0, "fade": 0}
 
