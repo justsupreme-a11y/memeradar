@@ -11,27 +11,26 @@ CRAWLERS = {
     "instiz":       ("인스티즈",      "crawlers.instiz",          "run"),
     "theqoo":       ("더쿠",          "crawlers.theqoo",           "run"),
     "pannate":      ("네이트판",      "crawlers.pannate",          "run"),
-    "mlbpark":      ("MLB파크",       "crawlers.mlbpark",          "run"),
-    # 국내 셀럽/연예
-    "dispatch":     ("디스패치",      "crawlers.dispatch",         "run"),
     # 국내 트렌드/미디어
     "goguma":       ("고구마팜",      "crawlers.gogumafarm",       "run"),
-    "univ":         ("대학내일",      "crawlers.univ_tomorrow",    "run"),
     # 패션
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
     # 해외
     "kym":          ("KYM",           "crawlers.kym",              "run"),
-    # "wikipedia": 제거 — 실시간성 없음, KYM과 역할 중복, 신규 0~1건/회
     # 영상
     "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
     "gtrends":      ("구글 트렌드",   "crawlers.google_trends",    "run"),
 
     # ── 제거된 크롤러 ────────────────────────────────────
-    # "mkt":    DNS 없음 / 전체 404 (HS애드, 대홍기획, 오픈서베이)
-    # "dfashion": DNS 없음 (www.dailyfashion.co.kr)
-    # "reddit": 403 전체 차단 (datacenter IP ban)
-    # "imgur":  모듈 파일 없음
+    # "mlbpark":  매번 0건
+    # "dispatch": 매번 0건 — JS 렌더링
+    # "univ":     매번 0건 — 사이트 구조 변경
+    # "mkt":      DNS 없음 / 전체 404
+    # "dfashion": DNS 없음
+    # "reddit":   403 전체 차단
+    # "imgur":    모듈 파일 없음
+    # "wikipedia":실시간성 없음, KYM과 역할 중복
 }
 
 def run_crawlers(targets):
