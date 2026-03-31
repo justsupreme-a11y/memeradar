@@ -25,8 +25,8 @@ HEADERS = {
 BASE_URL = "https://theqoo.net"
 
 BOARDS = [
-    {"url": f"{BASE_URL}/hot",  "name": "HOT"},
-    {"url": f"{BASE_URL}/hot2", "name": "HOT2"},
+    {"url": f"{BASE_URL}/hot", "name": "HOT"},
+    # hot2 제거 — URL 폐지됨, HOT 단독으로 충분
 ]
 
 # 제목에 이게 포함되면 스킵
@@ -53,8 +53,8 @@ def fetch_board(url: str, name: str) -> list[dict]:
         posts = []
         seen  = set()
 
+        # HOT과 스퀘어 둘 다 같은 table.bd_lst 구조 사용
         for row in soup.select("table.bd_lst tr"):
-            # 공지 행 스킵 (class에 notice 포함)
             row_class = " ".join(row.get("class", []))
             if "notice" in row_class or "gong" in row_class:
                 continue
@@ -104,6 +104,27 @@ def fetch_board(url: str, name: str) -> list[dict]:
                 "view_count":    view_count,
                 "comment_count": comment_count,
             })
+
+        # 스퀘어는 구조가 다를 경우 대비 — article 형태도 시도
+        if not posts:
+            for el in soup.select("li.item, .list_item, article"):
+                title_el = el.select_one("a.title, .subject a, h3 a, h4 a")
+                if not title_el:
+                    continue
+                title = title_el.text.strip()
+                href  = title_el.get("href", "")
+                if not title or not href or href in seen or len(title) < 2:
+                    continue
+                if is_notice(title):
+                    continue
+                seen.add(href)
+                url_full = BASE_URL + href if href.startswith("/") else href
+                posts.append({
+                    "title":         title,
+                    "url":           url_full,
+                    "view_count":    0,
+                    "comment_count": 0,
+                })
 
         return posts
 

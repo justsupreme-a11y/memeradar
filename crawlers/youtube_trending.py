@@ -17,7 +17,8 @@ YT_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
 
 REGIONS = [
     {"code": "KR", "platform": "domestic", "label": "국내 급상승"},
-    {"code": "US", "platform": "global",   "label": "해외 급상승"},
+    # US 제거 — 해외 급상승은 한국 밈 문화와 접점이 낮음
+    # 해외 밈 유입 감지는 KYM + 구글트렌드 교차 매칭으로 대체
 ]
 
 # YouTube videoCategoryId
@@ -34,16 +35,32 @@ TREND_CATEGORIES = [
 
 # 워크맨 제외
 # 채널 ID는 필요시 운영 중 교체
+# youtube_trending.py 의 MEME_CHANNELS 교체용
+# 업데이트: 2026-03-31
+ 
 MEME_CHANNELS = [
-    # 해외
-    {"id": "UCHRFMBxHOhqBjrVnZHKmGlA", "name": "Know Your Meme",      "platform": "global"},
-    {"id": "UCpko_-a4wgz2u_DgDgd9fqA", "name": "Daily Dose of Memes", "platform": "global"},
-
-    # 국내
-    {"id": "UCQ2KSP4dUBMoNpnnNRjT5LA", "name": "피식대학", "platform": "domestic"},
-    {"id": "UCK4s70-bFSFMVVdDTMKnorg", "name": "숏박스",   "platform": "domestic"},
-    {"id": "UCM2PEMvNjFOPMhBJJrCEBzA", "name": "침착맨",   "platform": "domestic"},
-    {"id": "UCuPDTBDvDpXciCBJsQNRSOQ", "name": "젼언니",   "platform": "domestic"},
+ 
+    # ── 유머 ──────────────────────────────────────────────
+    {"id": "UCGX5sP4ehBkihHwt5bs5wvg", "name": "피식대학", "platform": "domestic", "category": "humor"},
+    {"id": "UCUj6rrhMTR9pipbAWBAMvUQ", "name": "침착맨",   "platform": "domestic", "category": "humor"},
+    {"id": "UC1B6SalAoiJD7eHfMUA9QrA", "name": "숏박스",   "platform": "domestic", "category": "humor"},
+    {"id": "UCyar0OYt0LoPzkkWcQAo6OA", "name": "젼언니",   "platform": "domestic", "category": "humor"},
+    {"id": "UChbE5OZQ6dRHECsX0tEPEZQ", "name": "장삐쭈",   "platform": "domestic", "category": "humor"},
+ 
+    # ── 음식/먹방 ─────────────────────────────────────────
+    {"id": "UCfpaSruWW3S4dibonKXENjA", "name": "쯔양", "platform": "domestic", "category": "food"},
+    {"id": "UCA6KBBX8cLwYZNepxlE_7SA", "name": "히밥", "platform": "domestic", "category": "food"},
+ 
+    # ── 패션/뷰티 ─────────────────────────────────────────
+    {"id": "UCTdMHmzV9J5gihbNrnuqEvA", "name": "호호시",       "platform": "domestic", "category": "fashion"},
+    {"id": "UCvIgrqonnhMfLsETWAvKLyA", "name": "봄태규",       "platform": "domestic", "category": "fashion"},
+    {"id": "UCzYB6YA5f-Tc7GQcIese7pg", "name": "옆집언니최실장", "platform": "domestic", "category": "fashion"},
+    # 와디즈(@wadiz_tv) — 소스보기에서 channelId 확인 후 추가
+    # {"id": "확인필요", "name": "와디즈", "platform": "domestic", "category": "fashion"},
+ 
+    # ── 연예/셀럽 ─────────────────────────────────────────
+    {"id": "UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG문명특급", "platform": "domestic", "category": "celeb"},
+    # 딩고뮤직 핸들 확인 후 추가
 ]
 
 TREND_MAX_RESULTS = 20
