@@ -64,7 +64,7 @@ NEWS_BLACKLIST = [
 
 SOURCE_CONFIG = {
     "instiz": {
-        "require_any": [  # 이 중 하나라도 있어야 저장
+        "require_any": [
             "ㅋㅋ", "ㄷㄷ", "레전드", "실화냐", "미쳤다", "대박",
             "짤", "밈", "드립", "유행", "챌린지", "헐", "개웃김",
             "난리남", "화제", "반전", "충격", "역대급", "레전",
@@ -82,39 +82,24 @@ SOURCE_CONFIG = {
         "min_title_len": 5,
     },
     "pannate": {
-        "require_any": MEME_SIGNALS,  # 넓게 적용
+        "require_any": MEME_SIGNALS,
         "min_title_len": 5,
     },
-    "reddit": {
-        "require_any": [  # 영문 밈 신호
-            "meme", "viral", "trend", "lol", "lmao", "omg", "wtf",
-            "based", "cringe", "slay", "no way", "bro", "ratio",
-            "this is", "me when", "nobody:", "POV:", "tell me",
-        ],
-        "min_title_len": 3,
-        "blacklist": [],  # Reddit은 블랙리스트 없음 (서브레딧이 이미 필터)
-    },
-    "imgur": {
-        "require_any": [],  # Imgur는 이미 바이럴 콘텐츠만 있음 → 필터 없음
-        "min_title_len": 2,
-        "blacklist": [],
-    },
-    # 아래 소스는 자체 큐레이션이라 필터 없음
-    "gogumafarm":    {"require_any": [], "blacklist": []},
-    "univ_tomorrow": {"require_any": [], "blacklist": []},
-    "hsad":          {"require_any": [], "blacklist": []},
-    "hypebeast":     {"require_any": [], "blacklist": []},
-    "hypebeast_en":  {"require_any": [], "blacklist": []},
-    "gqkorea":       {"require_any": [], "blacklist": []},
-    "cosmopolitan":  {"require_any": [], "blacklist": []},
-    "vogue":         {"require_any": [], "blacklist": []},
-    "elle":          {"require_any": [], "blacklist": []},
-    "kym":           {"require_any": [], "blacklist": []},
-    "wikipedia":     {"require_any": [], "blacklist": []},
-    "youtube_trending": {"require_any": [], "blacklist": []},
-    "youtube_shorts":   {"require_any": [], "blacklist": []},
-    "youtube_meme_ch":  {"require_any": [], "blacklist": []},
-    "google_trends":    {"require_any": [], "blacklist": []},
+
+    # YouTube 3종 — 자체 큐레이션이지만 NEWS_BLACKLIST는 적용
+    "youtube_channel_hype":  {"require_any": [], "blacklist": NEWS_BLACKLIST},
+    "youtube_meme_ch":       {"require_any": [], "blacklist": NEWS_BLACKLIST},
+    "youtube_trending_hype": {"require_any": [], "blacklist": NEWS_BLACKLIST},
+
+    # 패션 매거진 — 자체 큐레이션이지만 NEWS_BLACKLIST 적용
+    "hypebeast":    {"require_any": [], "blacklist": NEWS_BLACKLIST},
+    "hypebeast_en": {"require_any": [], "blacklist": NEWS_BLACKLIST},
+    "gqkorea":      {"require_any": [], "blacklist": NEWS_BLACKLIST},
+
+    # 완전 자체 큐레이션 — 필터 없음
+    "gogumafarm":   {"require_any": [], "blacklist": []},
+    "kym":          {"require_any": [], "blacklist": []},
+    "google_trends": {"require_any": [], "blacklist": []},
 }
 
 
@@ -127,8 +112,8 @@ def is_meme_worthy(title: str, source: str) -> bool:
         return False
 
     config = SOURCE_CONFIG.get(source, {
-        "require_any": [],
-        "blacklist":   NEWS_BLACKLIST,
+        "require_any":   [],
+        "blacklist":     NEWS_BLACKLIST,
         "min_title_len": 3,
     })
 
