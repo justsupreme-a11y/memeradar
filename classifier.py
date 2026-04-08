@@ -3,7 +3,6 @@
 - 흐름 분류: inflow(해외→국내) / independent(국내 독립) / export(국내→해외)
 - lifecycle_stage 판정 제거 — 스냅샷 데이터 없이는 의미 없음
 """
-
 import logging
 from datetime import datetime, timezone
 from utils.db import get_client
@@ -11,31 +10,49 @@ from utils.db import get_client
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [classifier] %(message)s")
 log = logging.getLogger(__name__)
 
-# 해외 소스: KYM + YouTube 해외
-GLOBAL_SOURCES = {"kym", "youtube"}
+# 해외 소스: KYM + YouTube 전체
+GLOBAL_SOURCES = {
+    "kym",
+    "youtube_channel_hype",
+    "youtube_meme_ch",
+    "youtube_trending_hype",
+}
 
-# 국내 소스
-DOMESTIC_SOURCES = {"instiz", "theqoo", "pannate", "gogumafarm",
-                    "gqkorea", "hypebeast", "hypebeast_en", "google_trends"}
+# 국내 독립 소스 (해외 유입 가능성 없는 순수 국내)
+DOMESTIC_SOURCES = {
+    "instiz", "theqoo", "pannate", "gogumafarm",
+    "gqkorea", "hypebeast", "hypebeast_en", "google_trends",
+}
+
+# YouTube source 전체 집합 (platform 무관하게 inflow 처리)
+YOUTUBE_SOURCES = {
+    "youtube_channel_hype",
+    "youtube_meme_ch",
+    "youtube_trending_hype",
+}
 
 
 def classify_flow(meme: dict, all_memes_index: dict) -> str:
-    source   = meme["source"]
-    platform = meme.get("platform", "")
+    source = meme["source"]
 
+    # KYM → 항상 inflow
     if source == "kym":
         return "inflow"
 
-    if source in {"youtube", "youtube_meme_ch", "youtube_trending_hype", "youtube_channel_hype"}:
-        return "inflow" if platform == "global" else "independent"
+    # YouTube → platform 무관하게 inflow
+    # (국내 YouTube 채널도 밈 확산 경로상 inflow로 간주)
+    if source in YOUTUBE_SOURCES:
+        return "inflow"
 
+    # 구글트렌드 / 네이버 계열 → 독립
     if source in {"google_trends", "naver", "naver_realtime"}:
         return "independent"
 
+    # 국내 커뮤니티·패션 매거진 → 독립
     if source in DOMESTIC_SOURCES:
         return "independent"
 
-    # 타임스탬프 비교
+    # 그 외: 타이틀 기반 타임스탬프 비교로 판별
     title_key = _title_key(meme["title"])
     related   = all_memes_index.get(title_key, [])
 
@@ -44,7 +61,6 @@ def classify_flow(meme: dict, all_memes_index: dict) -> str:
 
     global_times   = []
     domestic_times = []
-
     for m in related:
         t = _parse_time(m["collected_at"])
         if m["source"] in GLOBAL_SOURCES:
