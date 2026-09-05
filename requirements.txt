@@ -5,3 +5,4 @@ supabase==1.2.0
 google-api-python-client==2.118.0
 httpx==0.24.1
 trendspy==0.1.4
+praw==7.7.1
