@@ -17,6 +17,7 @@ CRAWLERS = {
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
     # 해외
     "kym":          ("KYM",           "crawlers.kym",              "run"),
+    "reddit":       ("레딧",          "crawlers.reddit",           "run"),
     # 영상
     "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
@@ -28,7 +29,6 @@ CRAWLERS = {
     # "univ":     매번 0건 — 사이트 구조 변경
     # "mkt":      DNS 없음 / 전체 404
     # "dfashion": DNS 없음
-    # "reddit":   403 전체 차단
     # "imgur":    모듈 파일 없음
     # "wikipedia":실시간성 없음, KYM과 역할 중복
 }
