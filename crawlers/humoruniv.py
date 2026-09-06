@@ -32,6 +32,7 @@ def fetch_list() -> list[dict]:
     try:
         resp = requests.get(LIST_URL, headers=HEADERS, timeout=15)
         resp.raise_for_status()
+        resp.encoding = "euc-kr"  # 웃긴대학은 EUC-KR 인코딩 사이트 — 미지정 시 한글 깨짐(mojibake)
         soup = BeautifulSoup(resp.text, "html.parser")
 
         posts = []
