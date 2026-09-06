@@ -11,8 +11,11 @@ CRAWLERS = {
     "instiz":       ("인스티즈",      "crawlers.instiz",          "run"),
     "theqoo":       ("더쿠",          "crawlers.theqoo",           "run"),
     "pannate":      ("네이트판",      "crawlers.pannate",          "run"),
+    "humoruniv":    ("웃긴대학",      "crawlers.humoruniv",        "run"),
     # 국내 트렌드/미디어
     "goguma":       ("고구마팜",      "crawlers.gogumafarm",       "run"),
+    "naver":        ("네이버 검색",   "crawlers.naver",            "run"),
+    "naver_dl":     ("네이버 데이터랩","crawlers.naver_datalab",    "run"),
     # 패션
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
     # 해외
@@ -32,6 +35,12 @@ CRAWLERS = {
     # "imgur":    모듈 파일 없음
     # "wikipedia":실시간성 없음, KYM과 역할 중복
     # "reddit":   2025-11 Responsible Builder Policy 이후 신규 앱 발급 사실상 불가
+    # "namuwiki": 2026-09 확인 — 나무위키가 완전 클라이언트 렌더링(SPA) 전환,
+    #             원본 HTTP 응답에 실 콘텐츠 없음(순수 앱 셸) → requests로 수집 불가
+    # "mkt_insight": 2026-09 확인 — 대상 3개 사이트 중 2개 폐쇄(hsad/daehong),
+    #             나머지 1개(opensurvey)는 셀렉터 매칭 0건 → 전면 비활성
+    # "ucduk":    2026-09 확인 — 존재하지 않는 도메인(ucduk.com) 사용,
+    #             실제 웃긴대학 도메인은 web.humoruniv.com → humoruniv로 대체
 }
 
 def run_crawlers(targets):
