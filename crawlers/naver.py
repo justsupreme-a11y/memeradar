@@ -6,6 +6,7 @@
 """
 
 import os
+import html
 import logging
 import requests
 from utils.db import save_meme
@@ -67,12 +68,16 @@ def run():
         log.info(f"  → {len(items)}건 발견")
 
         for item in items:
-            # HTML 태그 제거
-            title = item.get("title", "").replace("<b>", "").replace("</b>", "")
-            url   = item.get("link") or item.get("url", "")
+            # HTML 태그 제거 + 엔티티 디코딩 (&quot; &amp; &lt; &gt; 등 — 네이버 API가
+            # 검색어 강조를 위해 <b> 태그와 함께 HTML 엔티티를 이스케이프해서 반환함)
+            raw_title = item.get("title", "").replace("<b>", "").replace("</b>", "")
+            title     = html.unescape(raw_title)
+            url       = item.get("link") or item.get("url", "")
 
             if not title or not url:
                 continue
+
+            raw_desc = item.get("description", "").replace("<b>", "").replace("</b>", "")
 
             saved = save_meme(
                 title=title,
@@ -82,8 +87,8 @@ def run():
                 extra={
                     "type":        search_type,
                     "keyword":     keyword,
-                    "description": item.get("description", "")[:200],
-                    "cafe_name":   item.get("cafename", ""),
+                    "description": html.unescape(raw_desc)[:200],
+                    "cafe_name":   html.unescape(item.get("cafename", "")),
                     "pub_date":    item.get("postdate") or item.get("pubDate", ""),
                 },
             )
