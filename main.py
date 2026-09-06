@@ -14,7 +14,6 @@ CRAWLERS = {
     "humoruniv":    ("웃긴대학",      "crawlers.humoruniv",        "run"),
     # 국내 트렌드/미디어
     "goguma":       ("고구마팜",      "crawlers.gogumafarm",       "run"),
-    "naver":        ("네이버 검색",   "crawlers.naver",            "run"),
     "naver_dl":     ("네이버 데이터랩","crawlers.naver_datalab",    "run"),
     # 패션
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
@@ -41,6 +40,9 @@ CRAWLERS = {
     #             나머지 1개(opensurvey)는 셀렉터 매칭 0건 → 전면 비활성
     # "ucduk":    2026-09 확인 — 존재하지 않는 도메인(ucduk.com) 사용,
     #             실제 웃긴대학 도메인은 web.humoruniv.com → humoruniv로 대체
+    # "naver":    2026-09 확인 — sort=date 키워드 검색이라 관련성 필터 없음,
+    #             카페/블로그 검색 API 특성상 썸네일도 없어 밈 콘텐츠와 성격 불일치.
+    #             수집물 대부분이 실제 밈이 아닌 정보성 블로그 글로 품질 미달 → 비활성
 }
 
 def run_crawlers(targets):
