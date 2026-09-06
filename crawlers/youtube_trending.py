@@ -359,6 +359,8 @@ def parse_video(
             "content_type": "shorts" if detect_shorts(item) else "video",
             "trend_category": trend_category,
             "hype_score": hype_score,
+            # 드로어에서 원문 이탈 없이 바로 읽을 수 있도록 설명 일부 저장
+            "description": (snippet.get("description") or "").strip()[:200],
         },
     }
 
