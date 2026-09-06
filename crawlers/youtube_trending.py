@@ -23,14 +23,15 @@ REGIONS = [
 
 # YouTube videoCategoryId
 # 0=all, 10=Music, 17=Sports, 20=Gaming, 22=People & Blogs, 23=Comedy, 24=Entertainment
+#
+# 2026-09 확인 — 게임/음악/스포츠 카테고리는 밈과 접점이 낮은데도 해당 카테고리
+# 자체 인급동 조회수가 절대적으로 커서 hype_score 상위를 차지, 피드에 무관한
+# 게임 클립 등이 노출되는 문제 → 밈·유머와 접점이 있는 카테고리만 남기고 제외
 TREND_CATEGORIES = [
     {"id": "0",  "name": "all",           "weight": 1.00},
     {"id": "24", "name": "entertainment", "weight": 1.15},
     {"id": "23", "name": "comedy",        "weight": 1.15},
     {"id": "22", "name": "people",        "weight": 1.08},
-    {"id": "10", "name": "music",         "weight": 1.00},
-    {"id": "20", "name": "gaming",        "weight": 0.95},
-    {"id": "17", "name": "sports",        "weight": 0.90},
 ]
 
 # 워크맨 제외
