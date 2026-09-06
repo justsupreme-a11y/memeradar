@@ -62,6 +62,9 @@ MEME_CHANNELS = [
     # ── 연예/셀럽 ─────────────────────────────────────────
     {"id": "UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG문명특급", "platform": "domestic", "category": "celeb"},
     # 딩고뮤직 핸들 확인 후 추가
+
+    # ── 시사/뉴스 유머 ────────────────────────────────────
+    {"id": "UCLKuglhGlMmDteQKoniENIQ", "name": "14F 일사에프", "platform": "domestic", "category": "humor"},
 ]
 
 TREND_MAX_RESULTS = 20
