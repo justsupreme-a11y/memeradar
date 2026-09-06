@@ -17,7 +17,7 @@ CRAWLERS = {
     "fashion":      ("패션매거진",    "crawlers.fashion_mag",      "run"),
     # 해외
     "kym":          ("KYM",           "crawlers.kym",              "run"),
-    "reddit":       ("레딧",          "crawlers.reddit",           "run"),
+    "giphy":        ("Giphy",         "crawlers.giphy_trending",   "run"),
     # 영상
     "yt":           ("YouTube",       "crawlers.youtube_trending", "run"),
     # 트렌드 데이터
@@ -31,6 +31,7 @@ CRAWLERS = {
     # "dfashion": DNS 없음
     # "imgur":    모듈 파일 없음
     # "wikipedia":실시간성 없음, KYM과 역할 중복
+    # "reddit":   2025-11 Responsible Builder Policy 이후 신규 앱 발급 사실상 불가
 }
 
 def run_crawlers(targets):
