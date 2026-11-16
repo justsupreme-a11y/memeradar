@@ -1,0 +1,25 @@
+name: keepalive
+
+# GitHub는 저장소에 60일간 커밋(push) 활동이 없으면 예약된(cron) 워크플로를
+# 자동으로 비활성화한다. meme-radar crawler v3(crawl.yml)가 이 정책에 걸려
+# 2026-11-06 이후 11일간 자동 수집이 중단된 사고가 있었음 — 재발 방지용 최소 커밋.
+on:
+  schedule:
+    - cron: "0 0 1 * *"   # 매월 1일 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create empty keepalive commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive commit (60일 무활동 워크플로 자동 비활성화 방지)"
+          git push
